@@ -6,12 +6,12 @@
 
 void main(void)
 {
-    int count = 1;
-    TRISB = 0;
+    int count = 1;          //Initializes the variable 'count' to the value 1
+    TRISB = 0;              //Configures PORTB to be an output
     
-    while(count<16)
+    while(count<16)         //Creates a while loop which will repeat as long as count<16 
     {
-        PORTB = count;
-        count++;
+        PORTB = count;      //Assigns the value of count to PORTB
+        count++;            //Increments the count
     }
 }
