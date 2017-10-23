@@ -9,6 +9,7 @@
                    displayName="Linker Files"
                    projectFiles="true">
       <itemPath>D:/ECNG3006/L01_814000456/L01_814000456.X/lab1.lkr</itemPath>
+      <itemPath>D:/ECNG3006/L01_814000456/L01_814000456.X/lab1_i.lkr</itemPath>
     </logicalFolder>
     <logicalFolder name="SourceFiles"
                    displayName="Source Files"
