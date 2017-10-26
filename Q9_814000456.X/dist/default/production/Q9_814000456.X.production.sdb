@@ -1,0 +1,158 @@
+[p LITE_MODE AUTOSTATIC LFSROK EMI_WORD ]
+[d version 1.1 ]
+[d edition pro ]
+[d chip 18F452 ]
+[d frameptr 4065 ]
+"62 C:\Program Files (x86)\Microchip\xc8\v1.42\sources\common\float.c
+[v ___ftpack __ftpack `(f  1 e 3 0 ]
+"86 C:\Program Files (x86)\Microchip\xc8\v1.42\sources\common\ftadd.c
+[v ___ftadd __ftadd `(f  1 e 3 0 ]
+"54 C:\Program Files (x86)\Microchip\xc8\v1.42\sources\common\ftdiv.c
+[v ___ftdiv __ftdiv `(f  1 e 3 0 ]
+"62 C:\Program Files (x86)\Microchip\xc8\v1.42\sources\common\ftmul.c
+[v ___ftmul __ftmul `(f  1 e 3 0 ]
+"20 C:\Program Files (x86)\Microchip\xc8\v1.42\sources\common\ftsub.c
+[v ___ftsub __ftsub `(f  1 e 3 0 ]
+"10 C:\Program Files (x86)\Microchip\xc8\v1.42\sources\common\sprcadd.c
+[v ___fladd __fladd `(d  1 e 3 0 ]
+"245
+[v ___flsub __flsub `(d  1 e 3 0 ]
+"11 C:\Program Files (x86)\Microchip\xc8\v1.42\sources\common\sprcdiv.c
+[v ___fldiv __fldiv `(d  1 e 3 0 ]
+"8 C:\Program Files (x86)\Microchip\xc8\v1.42\sources\common\sprcmul.c
+[v ___flmul __flmul `(d  1 e 3 0 ]
+"15 C:\Program Files (x86)\Microchip\xc8\v1.42\sources\common\Umul32.c
+[v ___lmul __lmul `(ul  1 e 4 0 ]
+"13 D:/ECNG3006/L01_814000456/Q9_814000456.X/lab1asm.c
+[v _DelayFor18TCY DelayFor18TCY `(v  1 e 1 0 ]
+"19
+[v _DelayPORXLCD DelayPORXLCD `(v  1 e 1 0 ]
+"29
+[v _init_LCD init_LCD `(v  1 e 1 0 ]
+"38
+[v _main main `(v  1 e 1 0 ]
+"12 D:/ECNG3006/L01_814000456/Q9_814000456.X/lcd.c
+[v _BusyXLCD BusyXLCD `(uc  1 e 1 0 ]
+"80
+[v _OpenXLCD OpenXLCD `(v  1 e 1 0 ]
+"161
+[v _putrsXLCD putrsXLCD `(v  1 e 1 0 ]
+"392
+[v _SetDDRamAddr SetDDRamAddr `(v  1 e 1 0 ]
+"455
+[v _WriteCmdXLCD WriteCmdXLCD `(v  1 e 1 0 ]
+"521
+[v _WriteDataXLCD WriteDataXLCD `(v  1 e 1 0 ]
+"487 C:\Program Files (x86)\Microchip\xc8\v1.42\include\pic18f452.h
+[v _PORTD PORTD `VEuc  1 e 1 @3971 ]
+[s S62 . 1 `uc 1 LATD0 1 0 :1:0 
+`uc 1 LATD1 1 0 :1:1 
+`uc 1 LATD2 1 0 :1:2 
+`uc 1 LATD3 1 0 :1:3 
+`uc 1 LATD4 1 0 :1:4 
+`uc 1 LATD5 1 0 :1:5 
+`uc 1 LATD6 1 0 :1:6 
+`uc 1 LATD7 1 0 :1:7 
+]
+"1071
+[s S71 . 1 `uc 1 LD0 1 0 :1:0 
+`uc 1 LD1 1 0 :1:1 
+`uc 1 LD2 1 0 :1:2 
+`uc 1 LD3 1 0 :1:3 
+`uc 1 LD4 1 0 :1:4 
+`uc 1 LD5 1 0 :1:5 
+`uc 1 LD6 1 0 :1:6 
+`uc 1 LD7 1 0 :1:7 
+]
+[u S80 . 1 `S62 1 . 1 0 `S71 1 . 1 0 ]
+[v _LATDbits LATDbits `VES80  1 e 1 @3980 ]
+"1886
+[v _TRISD TRISD `VEuc  1 e 1 @3989 ]
+[s S105 . 1 `uc 1 TRISD0 1 0 :1:0 
+`uc 1 TRISD1 1 0 :1:1 
+`uc 1 TRISD2 1 0 :1:2 
+`uc 1 TRISD3 1 0 :1:3 
+`uc 1 TRISD4 1 0 :1:4 
+`uc 1 TRISD5 1 0 :1:5 
+`uc 1 TRISD6 1 0 :1:6 
+`uc 1 TRISD7 1 0 :1:7 
+]
+"1918
+[s S114 . 1 `uc 1 RD0 1 0 :1:0 
+`uc 1 RD1 1 0 :1:1 
+`uc 1 RD2 1 0 :1:2 
+`uc 1 RD3 1 0 :1:3 
+`uc 1 RD4 1 0 :1:4 
+`uc 1 RD5 1 0 :1:5 
+`uc 1 RD6 1 0 :1:6 
+`uc 1 RD7 1 0 :1:7 
+]
+[u S123 . 1 `S105 1 . 1 0 `S114 1 . 1 0 ]
+[v _TRISDbits TRISDbits `VES123  1 e 1 @3989 ]
+"38 D:/ECNG3006/L01_814000456/Q9_814000456.X/lab1asm.c
+[v _main main `(v  1 e 1 0 ]
+{
+"45
+} 0
+"161 D:/ECNG3006/L01_814000456/Q9_814000456.X/lcd.c
+[v _putrsXLCD putrsXLCD `(v  1 e 1 0 ]
+{
+[v putrsXLCD@buffer buffer `*.32Cuc  1 p 2 1 ]
+"170
+} 0
+"521
+[v _WriteDataXLCD WriteDataXLCD `(v  1 e 1 0 ]
+{
+[v WriteDataXLCD@data data `uc  1 a 1 wreg ]
+[v WriteDataXLCD@data data `uc  1 a 1 wreg ]
+"536
+[v WriteDataXLCD@data data `uc  1 a 1 0 ]
+"568
+} 0
+"29 D:/ECNG3006/L01_814000456/Q9_814000456.X/lab1asm.c
+[v _init_LCD init_LCD `(v  1 e 1 0 ]
+{
+"37
+} 0
+"80 D:/ECNG3006/L01_814000456/Q9_814000456.X/lcd.c
+[v _OpenXLCD OpenXLCD `(v  1 e 1 0 ]
+{
+[v OpenXLCD@lcdtype lcdtype `uc  1 a 1 wreg ]
+[v OpenXLCD@lcdtype lcdtype `uc  1 a 1 wreg ]
+"89
+[v OpenXLCD@lcdtype lcdtype `uc  1 a 1 2 ]
+"142
+} 0
+"455
+[v _WriteCmdXLCD WriteCmdXLCD `(v  1 e 1 0 ]
+{
+[v WriteCmdXLCD@cmd cmd `uc  1 a 1 wreg ]
+[v WriteCmdXLCD@cmd cmd `uc  1 a 1 wreg ]
+"470
+[v WriteCmdXLCD@cmd cmd `uc  1 a 1 0 ]
+"502
+} 0
+"392
+[v _SetDDRamAddr SetDDRamAddr `(v  1 e 1 0 ]
+{
+[v SetDDRamAddr@DDaddr DDaddr `uc  1 a 1 wreg ]
+[v SetDDRamAddr@DDaddr DDaddr `uc  1 a 1 wreg ]
+"407
+[v SetDDRamAddr@DDaddr DDaddr `uc  1 a 1 0 ]
+"439
+} 0
+"19 D:/ECNG3006/L01_814000456/Q9_814000456.X/lab1asm.c
+[v _DelayPORXLCD DelayPORXLCD `(v  1 e 1 0 ]
+{
+"22
+} 0
+"12 D:/ECNG3006/L01_814000456/Q9_814000456.X/lcd.c
+[v _BusyXLCD BusyXLCD `(uc  1 e 1 0 ]
+{
+"58
+} 0
+"13 D:/ECNG3006/L01_814000456/Q9_814000456.X/lab1asm.c
+[v _DelayFor18TCY DelayFor18TCY `(v  1 e 1 0 ]
+{
+"17
+} 0
