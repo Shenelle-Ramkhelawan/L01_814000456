@@ -1,0 +1,1734 @@
+MPASM 5.54                       PIDMATH.ASM   10-25-2017  22:30:33         PAGE  1
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+                      00001 ;********************************************************
+                      00002 ;This file contains the following math routines:
+                      00003 
+                      00004 ;24-bit addittion               
+                      00005 ;24-bit subtraction
+                      00006         
+                      00007 ;16*16  Unsigned Multiply       
+                      00008                                                         
+                      00009 ;24/16  Unsigned Divide                 
+                      00010                         
+                      00011         list            p=18F452       
+                      00012         #include        <p18F452.inc> 
+                      00001         LIST
+                      00002 
+                      00003 ;==========================================================================
+                      00004 ;  MPASM PIC18F452 processor include
+                      00005 ; 
+                      00006 ;  (c) Copyright 1999-2013 Microchip Technology, All rights reserved
+                      00007 ;==========================================================================
+                      00008 
+                      01254         LIST
+                      00013 
+                      00014         #define _Z              STATUS,2
+                      00015         #define _C              STATUS,0
+                      00016         
+  0000                00017         GLOBAL  AARGB0,AARGB1,AARGB2,AARGB3             
+  0000                00018         GLOBAL  BARGB0,BARGB1,BARGB2,BARGB3
+  0000                00019         GLOBAL  ZARGB0,ZARGB1,ZARGB2
+  0000                00020         GLOBAL  REMB0,REMB1
+  0000                00021         GLOBAL  TEMP,TEMPB0,TEMPB1,TEMPB2,TEMPB3
+  0000                00022         GLOBAL  LOOPCOUNT,AEXP,CARGB2
+                      00023 
+                      00024         
+  00000000            00025 LSB                     equ     0
+  00000007            00026 MSB                     equ     7
+                      00027 
+                      00028 math_data       UDATA   
+000000                00029 AARGB0          RES 1           
+000001                00030 AARGB1          RES 1
+000002                00031 AARGB2          RES 1
+000003                00032 AARGB3          RES 1
+000004                00033 BARGB0          RES 1   
+000005                00034 BARGB1          RES 1
+000006                00035 BARGB2          RES 1
+000007                00036 BARGB3          RES 1
+000008                00037 REMB0           RES 1   
+000009                00038 REMB1           RES 1
+00000A                00039 REMB2           RES 1
+00000B                00040 REMB3           RES 1   
+00000C                00041 TEMP            RES 1
+00000D                00042 TEMPB0          RES 1
+00000E                00043 TEMPB1          RES 1
+00000F                00044 TEMPB2          RES 1
+MPASM 5.54                       PIDMATH.ASM   10-25-2017  22:30:33         PAGE  2
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+000010                00045 TEMPB3          RES 1
+000011                00046 ZARGB0          RES 1
+000012                00047 ZARGB1          RES 1
+000013                00048 ZARGB2          RES 1
+000014                00049 CARGB2          RES     1
+000015                00050 AEXP            RES 1
+000016                00051 LOOPCOUNT       RES 1
+                      00052 
+                      00053 
+                      00054 math_code       CODE
+                      00055 ;---------------------------------------------------------------------
+                      00056 ;               24-BIT ADDITION                         
+000000                00057 _24_BitAdd
+  0000                00058         GLOBAL  _24_BitAdd
+000000 50??           00059         movf    BARGB2,w
+000002 26??           00060         addwf   AARGB2,f
+                      00061 
+000004 50??           00062         movf    BARGB1,w
+000006 B0D8           00063         btfsc   _C
+000008 3C??           00064         incfsz  BARGB1,w
+00000A 26??           00065         addwf   AARGB1,f
+                      00066         
+00000C 50??           00067         movf    BARGB0,w
+00000E B0D8           00068         btfsc   _C
+000010 3C??           00069         incfsz  BARGB0,w
+000012 26??           00070         addwf   AARGB0,f
+000014 0012           00071         return
+                      00072 
+                      00073 ;---------------------------------------------------------------------
+                      00074 ;               24-BIT SUBTRACTION                      
+000016                00075 _24_bit_sub
+  0000                00076         GLOBAL  _24_bit_sub
+000016 50??           00077         movf    BARGB2,w
+000018 5E??           00078         subwf   AARGB2,f        
+                      00079 
+00001A 50??           00080         movf    BARGB1,w
+00001C A0D8           00081         btfss   STATUS,C
+00001E 3C??           00082         incfsz  BARGB1,w
+000020 5E??           00083         subwf   AARGB1,f
+                      00084 
+000022 50??           00085         movf    BARGB0,w
+000024 A0D8           00086         btfss   STATUS,C
+000026 3C??           00087         incfsz  BARGB0,w
+000028 5E??           00088         subwf   AARGB0,f
+00002A 0012           00089         return
+                      00090 
+                      00091 ;-------------------------------------------------------------------------
+                      00092 ;       16x16 Bit Unsigned Fixed Point Multiply 16 x 16 -> 32
+                      00093 
+00002C                00094 FXM1616U
+  0000                00095                 GLOBAL  FXM1616U
+                      00096 
+00002C C??? F???      00097                 MOVFF   AARGB1,TEMPB1   
+MPASM 5.54                       PIDMATH.ASM   10-25-2017  22:30:33         PAGE  3
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+                      00098 
+000030 50??           00099                 MOVF    AARGB1,W
+000032 02??           00100                 MULWF   BARGB1
+000034 CFF4 F???      00101                 MOVFF   PRODH,AARGB2
+000038 CFF3 F???      00102                 MOVFF   PRODL,AARGB3
+                      00103                 
+00003C 50??           00104                 MOVF    AARGB0,W
+00003E 02??           00105                 MULWF   BARGB0
+000040 CFF4 F???      00106                 MOVFF   PRODH,AARGB0
+000044 CFF3 F???      00107                 MOVFF   PRODL,AARGB1
+                      00108 
+000048 02??           00109                 MULWF   BARGB1
+00004A 50F3           00110                 MOVF    PRODL,W
+00004C 26??           00111                 ADDWF   AARGB2,F
+00004E 50F4           00112                 MOVF    PRODH,W
+000050 22??           00113                 ADDWFC  AARGB1,F
+000052 6AE8           00114                 CLRF    WREG
+000054 22??           00115                 ADDWFC  AARGB0,F
+                      00116 
+000056 50??           00117                 MOVF    TEMPB1,W
+000058 02??           00118                 MULWF   BARGB0
+00005A 50F3           00119                 MOVF    PRODL,W
+00005C 26??           00120                 ADDWF   AARGB2,F
+00005E 50F4           00121                 MOVF    PRODH,W
+000060 22??           00122                 ADDWFC  AARGB1,F
+000062 6AE8           00123                 CLRF    WREG
+000064 22??           00124                 ADDWFC  AARGB0,F
+                      00125                 
+000066 0C00           00126                 RETLW   0x00
+                      00127 
+                      00128 ;--------------------------------------------------------------------
+000068                00129 FXD2416U                
+  0000                00130                 GLOBAL          FXD2416U
+000068 6A??           00131                 CLRF            REMB0
+00006A 6A??           00132                 CLRF            REMB1
+00006C 6AE8           00133                 CLRF            WREG
+00006E 66??           00134                 TSTFSZ          BARGB0
+000070 EF?? F???      00135                 GOTO            D2416BGT1
+000074 C??? F???      00136                 MOVFF           BARGB1,BARGB0
+000078 EC?? F???      00137                 CALL            FXD2408U
+00007C C??? F???      00138                 MOVFF           REMB0,REMB1
+000080 6A??           00139                 CLRF            REMB0
+000082 0C00           00140                 RETLW           0x00
+                      00141 
+000084                00142 D2416BGT1
+000084 62??           00143                 CPFSEQ          AARGB0
+000086 EF?? F???      00144                 GOTO            D2416AGTB
+00008A C??? F???      00145                 MOVFF           AARGB1,AARGB0
+00008E C??? F???      00146                 MOVFF           AARGB2,AARGB1
+000092 EC?? F???      00147                 CALL            FXD1616U
+                      00148                 
+000096 C??? F???      00149                 MOVFF           AARGB1,AARGB2
+00009A C??? F???      00150                 MOVFF           AARGB0,AARGB1
+MPASM 5.54                       PIDMATH.ASM   10-25-2017  22:30:33         PAGE  4
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+00009E 6A??           00151                 CLRF            AARGB0
+0000A0 0C00           00152                 RETLW           0x00
+0000A2                00153 D2416AGTB
+0000A2 C??? F???      00154                 MOVFF           AARGB2,AARGB3
+0000A6 C??? F???      00155                 MOVFF           AARGB1,AARGB2
+0000AA C??? F???      00156                 MOVFF           AARGB0,AARGB1
+0000AE 6A??           00157                 CLRF            AARGB0
+                      00158 
+0000B0 C??? F???      00159                 MOVFF           AARGB0,TEMPB0
+0000B4 C??? F???      00160                 MOVFF           AARGB1,TEMPB1
+0000B8 C??? F???      00161                 MOVFF           AARGB2,TEMPB2
+0000BC C??? F???      00162                 MOVFF           AARGB3,TEMPB3
+                      00163 
+0000C0 0E02           00164                 MOVLW           0x02                    ; set loop count
+0000C2 6E??           00165                 MOVWF           AEXP
+                      00166 
+0000C4 0E01           00167                 MOVLW           0x01
+0000C6 6E??           00168                 MOVWF           ZARGB0
+                      00169 
+0000C8 BE??           00170                 BTFSC           BARGB0,MSB
+0000CA EF?? F???      00171                 GOTO            D2416UNRMOK
+                      00172 
+0000CE EC?? F???      00173                 CALL            DGETNRMD                ; get normalization factor
+0000D2 6E??           00174                 MOVWF           ZARGB0
+                      00175 
+0000D4 02??           00176                 MULWF           BARGB1
+0000D6 50??           00177                 MOVF            BARGB0,W
+0000D8 CFF3 F???      00178                 MOVFF           PRODL,BARGB1
+0000DC CFF4 F???      00179                 MOVFF           PRODH,BARGB0
+0000E0 02??           00180                 MULWF           ZARGB0
+0000E2 50F3           00181                 MOVF            PRODL,W
+0000E4 26??           00182                 ADDWF           BARGB0,F
+                      00183 
+0000E6 50??           00184                 MOVF            ZARGB0,W
+0000E8 02??           00185                 MULWF           AARGB3
+0000EA CFF3 F???      00186                 MOVFF           PRODL,TEMPB3
+0000EE CFF4 F???      00187                 MOVFF           PRODH,TEMPB2
+0000F2 02??           00188                 MULWF           AARGB1
+0000F4 CFF3 F???      00189                 MOVFF           PRODL,TEMPB1
+0000F8 CFF4 F???      00190                 MOVFF           PRODH,TEMPB0
+0000FC 02??           00191                 MULWF           AARGB2
+0000FE 50F3           00192                 MOVF            PRODL,W
+000100 26??           00193                 ADDWF           TEMPB2,F
+000102 50F4           00194                 MOVF            PRODH,W
+000104 26??           00195                 ADDWF           TEMPB1,F
+                      00196 
+000106                00197 D2416UNRMOK
+000106 90D8           00198                 BCF             _C
+000108 6AF7           00199                 CLRF            TBLPTRH
+00010A 34??           00200                 RLCF            BARGB0,W
+00010C 36F7           00201                 RLCF            TBLPTRH,F
+00010E 0F??           00202                 ADDLW           LOW (IBXTBL256+1)       ; access reciprocal table
+000110 6EF6           00203                 MOVWF           TBLPTRL
+MPASM 5.54                       PIDMATH.ASM   10-25-2017  22:30:33         PAGE  5
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+000112 0E??           00204                 MOVLW           HIGH (IBXTBL256)
+000114 22F7           00205                 ADDWFC          TBLPTRH,F
+000116 000A           00206                 TBLRD           *-
+                      00207 
+000118                00208 D2416ULOOP
+000118 C??? F???      00209                 MOVFF           TEMPB0,AARGB0
+00011C C??? F???      00210                 MOVFF           TEMPB1,AARGB1
+                      00211 
+000120 EC?? F???      00212                 CALL            FXD1608U2               ; estimate quotient digit
+                      00213 
+000124 A0??           00214                 BTFSS           AARGB0,LSB
+000126 EF?? F???      00215                 GOTO            D2416UQTEST
+                      00216 
+00012A 68??           00217                 SETF            AARGB1
+00012C C??? F???      00218                 MOVFF           TEMPB1,REMB0
+000130 50??           00219                 MOVF            BARGB0,W
+000132 26??           00220                 ADDWF           REMB0,F
+                      00221 
+000134 B0D8           00222                 BTFSC           _C
+000136 EF?? F???      00223                 GOTO            D2416UQOK
+                      00224 
+00013A                00225 D2416UQTEST
+00013A 50??           00226                 MOVF            AARGB1,W                ; test
+00013C 02??           00227                 MULWF           BARGB1
+                      00228 
+00013E 50F3           00229                 MOVF            PRODL,W
+000140 5C??           00230                 SUBWF           TEMPB2,W
+000142 50F4           00231                 MOVF            PRODH,W
+000144 58??           00232                 SUBWFB          REMB0,W
+                      00233 
+000146 B0D8           00234                 BTFSC           _C
+000148 EF?? F???      00235                 GOTO            D2416UQOK
+                      00236 
+00014C 06??           00237                 DECF            AARGB1,F
+                      00238 
+00014E 50??           00239                 MOVF            BARGB0,W
+000150 26??           00240                 ADDWF           REMB0,F
+                      00241 
+000152 B0D8           00242                 BTFSC           _C
+000154 EF?? F???      00243                 GOTO            D2416UQOK
+                      00244 
+000158 50??           00245                 MOVF            AARGB1,W
+00015A 02??           00246                 MULWF           BARGB1
+                      00247 
+00015C 50F3           00248                 MOVF            PRODL,W
+00015E 5C??           00249                 SUBWF           TEMPB2,W
+000160 50F4           00250                 MOVF            PRODH,W
+000162 58??           00251                 SUBWFB          REMB0,W
+                      00252 
+000164 A0D8           00253                 BTFSS           _C
+000166 06??           00254                 DECF            AARGB1,F
+                      00255 
+000168                00256 D2416UQOK
+MPASM 5.54                       PIDMATH.ASM   10-25-2017  22:30:33         PAGE  6
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+000168 C??? F???      00257                 MOVFF           AARGB1,ZARGB1
+                      00258 
+00016C 50??           00259                 MOVF            AARGB1,W
+00016E 02??           00260                 MULWF           BARGB1
+000170 50F3           00261                 MOVF            PRODL,W
+000172 5E??           00262                 SUBWF           TEMPB2,F
+000174 50F4           00263                 MOVF            PRODH,W
+000176 5A??           00264                 SUBWFB          TEMPB1,F
+                      00265 
+000178 50??           00266                 MOVF            AARGB1,W
+00017A 02??           00267                 MULWF           BARGB0
+00017C 50F3           00268                 MOVF            PRODL,W
+00017E 5E??           00269                 SUBWF           TEMPB1,F
+000180 50F4           00270                 MOVF            PRODH,W
+000182 5A??           00271                 SUBWFB          TEMPB0,F
+                      00272 
+000184 AE??           00273                 BTFSS           TEMPB0,MSB              ; test
+000186 EF?? F???      00274                 GOTO            D2416QOK
+00018A 06??           00275                 DECF            ZARGB1,F
+                      00276 
+00018C 50??           00277                 MOVF            BARGB1,W
+00018E 26??           00278                 ADDWF           TEMPB2,F
+000190 50??           00279                 MOVF            BARGB0,W
+000192 22??           00280                 ADDWFC          TEMPB1,F
+                      00281 
+000194                00282 D2416QOK
+000194 4E??           00283                 DCFSNZ          AEXP,F                  ; is loop done?
+000196 EF?? F???      00284                 GOTO            D2416FIXREM
+                      00285 
+00019A C??? F???      00286                 MOVFF           ZARGB1,ZARGB2
+                      00287 
+00019E C??? F???      00288                 MOVFF           TEMPB1,TEMPB0
+0001A2 C??? F???      00289                 MOVFF           TEMPB2,TEMPB1
+0001A6 C??? F???      00290                 MOVFF           TEMPB3,TEMPB2
+                      00291 
+0001AA EF?? F???      00292                 GOTO            D2416ULOOP              
+                      00293 
+0001AE                00294 D2416FIXREM
+0001AE C??? F???      00295                 MOVFF           TEMPB1,REMB0
+0001B2 C??? F???      00296                 MOVFF           TEMPB2,REMB1
+                      00297 
+0001B6 0E01           00298                 MOVLW           0x01
+0001B8 64??           00299                 CPFSGT          ZARGB0
+0001BA EF?? F???      00300                 GOTO            D2416REMOK
+0001BE 40??           00301                 RRNCF           ZARGB0,W
+0001C0 6E??           00302                 MOVWF           BARGB0
+0001C2 EC?? F???      00303                 CALL            DGETNRMD
+                      00304 
+0001C6 02??           00305                 MULWF           TEMPB2
+0001C8 CFF4 F???      00306                 MOVFF           PRODH,REMB1
+0001CC 02??           00307                 MULWF           TEMPB1
+0001CE 50F3           00308                 MOVF            PRODL,W
+0001D0 26??           00309                 ADDWF           REMB1,F
+MPASM 5.54                       PIDMATH.ASM   10-25-2017  22:30:33         PAGE  7
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+0001D2 CFF4 F???      00310                 MOVFF           PRODH,REMB0
+                      00311 
+0001D6                00312 D2416REMOK
+0001D6 6A??           00313                 CLRF            AARGB0
+0001D8 C??? F???      00314                 MOVFF           ZARGB1,AARGB2
+0001DC C??? F???      00315                 MOVFF           ZARGB2,AARGB1
+                      00316 
+0001E0 0C00           00317                 RETLW           0x00
+                      00318                 
+                      00319 ;----------------------------------------------------           
+0001E2                00320 FXD2408U
+0001E2 C??? F???      00321                 MOVFF           AARGB0,TEMPB0
+0001E6 C??? F???      00322                 MOVFF           AARGB1,TEMPB1
+0001EA C??? F???      00323                 MOVFF           AARGB2,TEMPB2
+                      00324 
+0001EE EC?? F???      00325                 CALL            FXD1608U
+                      00326 
+0001F2 C??? F???      00327                 MOVFF           AARGB0,TEMPB0
+0001F6 C??? F???      00328                 MOVFF           AARGB1,TEMPB1
+                      00329 
+0001FA C??? F???      00330                 MOVFF           TEMPB2,AARGB1
+0001FE C??? F???      00331                 MOVFF           REMB0,AARGB0
+                      00332 
+000202 EC?? F???      00333                 CALL            FXD1608U
+                      00334                 
+000206 C??? F???      00335                 MOVFF           AARGB1,AARGB2
+00020A C??? F???      00336                 MOVFF           TEMPB1,AARGB1
+00020E C??? F???      00337                 MOVFF           TEMPB0,AARGB0
+                      00338 
+000212 0C00           00339                 RETLW           0x00
+                      00340                 
+                      00341 ;--------------------------------------------------------
+000214                00342 FXD1608U
+  0000                00343                 GLOBAL          FXD1608U
+                      00344 
+000214 0E01           00345                 MOVLW           0x01
+000216 64??           00346                 CPFSGT          BARGB0
+000218 EF?? F???      00347                 GOTO            DREMZERO8
+                      00348 
+00021C                00349 FXD1608U1
+  0000                00350                 GLOBAL          FXD1608U1
+                      00351 
+00021C 90D8           00352                 BCF             _C
+00021E 6AF7           00353                 CLRF            TBLPTRH
+000220 34??           00354                 RLCF            BARGB0,W
+000222 36F7           00355                 RLCF            TBLPTRH,F
+000224 0F??           00356                 ADDLW           LOW (IBXTBL256+1)       ; access reciprocal table
+000226 6EF6           00357                 MOVWF           TBLPTRL
+000228 0E??           00358                 MOVLW           HIGH (IBXTBL256)
+00022A 22F7           00359                 ADDWFC          TBLPTRH,F
+00022C 000A           00360                 TBLRD           *-
+                      00361 
+00022E                00362 FXD1608U2
+MPASM 5.54                       PIDMATH.ASM   10-25-2017  22:30:33         PAGE  8
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+  0000                00363                 GLOBAL          FXD1608U2
+                      00364 
+00022E C??? F???      00365                 MOVFF           AARGB0,REMB1
+000232 C??? F???      00366                 MOVFF           AARGB1,REMB0
+                      00367 
+000236 50F5           00368                 MOVF            TABLAT,W                ; estimate quotient
+000238 02??           00369                 MULWF           REMB1
+00023A CFF4 F???      00370                 MOVFF           PRODH,AARGB0
+00023E CFF3 F???      00371                 MOVFF           PRODL,AARGB1
+                      00372 
+000242 0009           00373                 TBLRD           *+
+000244 50F5           00374                 MOVF            TABLAT,W
+000246 02??           00375                 MULWF           REMB0
+000248 CFF4 F???      00376                 MOVFF           PRODH,AARGB2
+                      00377 
+00024C 02??           00378                 MULWF           REMB1
+00024E 50F3           00379                 MOVF            PRODL,W
+000250 26??           00380                 ADDWF           AARGB2,F
+000252 50F4           00381                 MOVF            PRODH,W
+000254 22??           00382                 ADDWFC          AARGB1,F
+000256 6AE8           00383                 CLRF            WREG
+000258 22??           00384                 ADDWFC          AARGB0,F
+                      00385 
+00025A 000A           00386                 TBLRD           *-
+00025C 50F5           00387                 MOVF            TABLAT,W
+00025E 02??           00388                 MULWF           REMB0
+000260 50F3           00389                 MOVF            PRODL,W
+000262 26??           00390                 ADDWF           AARGB2,F
+000264 50F4           00391                 MOVF            PRODH,W
+000266 22??           00392                 ADDWFC          AARGB1,F
+000268 6AE8           00393                 CLRF            WREG
+00026A 22??           00394                 ADDWFC          AARGB0,F
+                      00395                 
+00026C 50??           00396                 MOVF            BARGB0,W
+00026E 02??           00397                 MULWF           AARGB1
+000270 CFF3 F???      00398                 MOVFF           PRODL,AARGB3
+000274 CFF4 F???      00399                 MOVFF           PRODH,AARGB2
+000278 02??           00400                 MULWF           AARGB0
+00027A 50F3           00401                 MOVF            PRODL,W
+00027C 26??           00402                 ADDWF           AARGB2,F
+                      00403 
+00027E 50??           00404                 MOVF            AARGB3,W                ; estimate remainder
+000280 5E??           00405                 SUBWF           REMB0,F
+000282 50??           00406                 MOVF            AARGB2,W
+000284 5A??           00407                 SUBWFB          REMB1,F
+                      00408 
+000286 AE??           00409                 BTFSS           REMB1,MSB               ; test remainder
+000288 0C00           00410                 RETLW           0x00
+                      00411 
+00028A 06??           00412                 DECF            AARGB1,F
+00028C 6AE8           00413                 CLRF            WREG
+00028E 5A??           00414                 SUBWFB          AARGB0,F
+                      00415 
+MPASM 5.54                       PIDMATH.ASM   10-25-2017  22:30:33         PAGE  9
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+000290 50??           00416                 MOVF            BARGB0,W
+000292 26??           00417                 ADDWF           REMB0,F
+                      00418 
+000294 0C00           00419         RETLW       0x00
+                      00420         
+                      00421         
+                      00422 ;----------------------------------------------------------
+000296                00423 FXD1616U
+000296 66??           00424                 TSTFSZ          BARGB0
+000298 EF?? F???      00425                 GOTO            D1616B0GT0
+00029C C??? F???      00426                 MOVFF           BARGB1,BARGB0
+0002A0 EC?? F???      00427                 CALL            FXD1608U
+0002A4 C??? F???      00428                 MOVFF           REMB0,REMB1
+0002A8 6A??           00429                 CLRF            REMB0
+                      00430 
+0002AA 0C00           00431                 RETLW           0x00
+                      00432 
+0002AC                00433 D1616B0GT0
+0002AC 50??           00434                 MOVF            BARGB0,W
+0002AE 5C??           00435                 SUBWF           AARGB0,W
+0002B0 A0D8           00436                 BTFSS           _C
+0002B2 EF?? F???      00437                 GOTO            D1616QZERO
+0002B6 A4D8           00438                 BTFSS           _Z
+0002B8 EF?? F???      00439                 GOTO            D1616AGEB
+                      00440 
+0002BC 50??           00441                 MOVF            BARGB1,W
+0002BE 5C??           00442                 SUBWF           AARGB1,W
+0002C0 A0D8           00443                 BTFSS           _C
+0002C2 EF?? F???      00444                 GOTO            D1616QZERO
+                      00445 
+0002C6                00446 D1616AGEB
+0002C6 C??? F???      00447                 MOVFF           AARGB0,TEMPB0
+0002CA C??? F???      00448                 MOVFF           AARGB1,TEMPB1
+                      00449 
+0002CE C??? F???      00450                 MOVFF           AARGB1,CARGB2
+0002D2 C??? F???      00451                 MOVFF           AARGB0,AARGB1
+0002D6 6A??           00452                 CLRF            AARGB0
+                      00453 
+0002D8 C??? F???      00454                 MOVFF           BARGB0,BARGB2
+0002DC C??? F???      00455                 MOVFF           BARGB1,BARGB3
+                      00456 
+0002E0 BE??           00457                 BTFSC           BARGB0,MSB
+0002E2 EF?? F???      00458                 GOTO            D1616UNRMOK
+                      00459 
+0002E6 50??           00460                 MOVF            BARGB0,W
+0002E8 46E8           00461                 RLNCF           WREG,F
+0002EA 0F??           00462                 ADDLW           LOW (IBXTBL256+3)       ; access reciprocal table
+0002EC 6EF6           00463                 MOVWF           TBLPTRL
+0002EE 0E??           00464                 MOVLW           HIGH (IBXTBL256)
+0002F0 6AF7           00465                 CLRF            TBLPTRH
+0002F2 22F7           00466                 ADDWFC          TBLPTRH,F
+0002F4 0008           00467                 TBLRD           *
+                      00468 
+MPASM 5.54                       PIDMATH.ASM   10-25-2017  22:30:33         PAGE 10
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+0002F6 50F5           00469                 MOVF            TABLAT,W                ; normalize
+0002F8 02??           00470                 MULWF           BARGB3
+0002FA CFF3 F???      00471                 MOVFF           PRODL,BARGB1
+0002FE CFF4 F???      00472                 MOVFF           PRODH,BARGB0
+000302 02??           00473                 MULWF           BARGB2
+000304 50F3           00474                 MOVF            PRODL,W
+000306 26??           00475                 ADDWF           BARGB0,F
+                      00476 
+000308 50F5           00477                 MOVF            TABLAT,W
+00030A 02??           00478                 MULWF           TEMPB1
+00030C CFF3 F???      00479                 MOVFF           PRODL,CARGB2
+000310 CFF4 F???      00480                 MOVFF           PRODH,AARGB1
+000314 02??           00481                 MULWF           TEMPB0
+000316 50F3           00482                 MOVF            PRODL,W
+000318 26??           00483                 ADDWF           AARGB1,F
+00031A 6A??           00484                 CLRF            AARGB0
+00031C 50F4           00485                 MOVF            PRODH,W
+00031E 22??           00486                 ADDWFC          AARGB0,F
+                      00487 
+000320                00488 D1616UNRMOK
+000320 EC?? F???      00489                 CALL            FXD1608U1               ; estimate quotient digit
+                      00490 
+000324 50??           00491                 MOVF            AARGB1,W
+000326 02??           00492                 MULWF           BARGB1
+                      00493 
+000328 50F3           00494                 MOVF            PRODL,W
+00032A 5C??           00495                 SUBWF           CARGB2,W
+00032C 50F4           00496                 MOVF            PRODH,W
+00032E 58??           00497                 SUBWFB          REMB0,W
+                      00498 
+000330 A0D8           00499                 BTFSS           _C                      ; test
+000332 06??           00500                 DECF            AARGB1,F
+                      00501 
+000334                00502 D1616UQOK
+000334 50??           00503                 MOVF            AARGB1,W                ; calculate remainder
+000336 02??           00504                 MULWF           BARGB3
+000338 50F3           00505                 MOVF            PRODL,W
+00033A 5E??           00506                 SUBWF           TEMPB1,F
+00033C 50F4           00507                 MOVF            PRODH,W
+00033E 5A??           00508                 SUBWFB          TEMPB0,F
+                      00509 
+000340 50??           00510                 MOVF            AARGB1,W
+000342 02??           00511                 MULWF           BARGB2
+000344 50F3           00512                 MOVF            PRODL,W
+000346 5E??           00513                 SUBWF           TEMPB0,F
+                      00514 
+                      00515 ;       This test does not appear to be necessary in the 16 bit case, but
+                      00516 ;       is included here in the event that a case appears after testing.
+                      00517 
+                      00518 ;               BTFSS           TEMPB0,MSB              ; test
+                      00519 ;               GOTO            D1616QOK
+                      00520 ;               DECF            AARGB1
+                      00521 
+MPASM 5.54                       PIDMATH.ASM   10-25-2017  22:30:33         PAGE 11
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+                      00522 ;               MOVF            BARGB3,W
+                      00523 ;               ADDWF           TEMPB1
+                      00524 ;               MOVF            BARGB2,W
+                      00525 ;               ADDWFC          TEMPB0
+                      00526 
+000348                00527 D1616QOK
+000348 C??? F???      00528                 MOVFF           TEMPB0,REMB0
+00034C C??? F???      00529                 MOVFF           TEMPB1,REMB1
+                      00530 
+000350 0C00           00531                 RETLW       0x00        
+                      00532 ;---------------------------------------------------------
+000352                00533 DGETNRMD
+000352 0E10           00534                 MOVLW           0x10
+000354 60??           00535                 CPFSLT          BARGB0
+000356 EF?? F???      00536                 GOTO            DGETNRMDH
+00035A                00537 DGETNRMDL
+00035A B6??           00538                 BTFSC           BARGB0,3
+00035C 0C10           00539                 RETLW           0x10            
+00035E B4??           00540                 BTFSC           BARGB0,2
+000360 0C20           00541                 RETLW           0x20            
+000362 B2??           00542                 BTFSC           BARGB0,1
+000364 0C40           00543                 RETLW           0x40
+000366 B0??           00544                 BTFSC           BARGB0,0
+000368 0C80           00545                 RETLW           0x80
+00036A                00546 DGETNRMDH
+00036A BC??           00547                 BTFSC           BARGB0,6
+00036C 0C02           00548                 RETLW           0x02            
+00036E BA??           00549                 BTFSC           BARGB0,5
+000370 0C04           00550                 RETLW           0x04            
+000372 B8??           00551                 BTFSC           BARGB0,4
+000374 0C08           00552                 RETLW           0x08
+                      00553 
+                      00554 ;----------------------------------------------------------------------------------------------
+                      00555 ;       Routines for the trivial cases when the quotient is zero.
+                      00556 ;       Timing: 9,7,5   clks
+                      00557 ;   PM: 9,7,5               DM: 8,6,4
+                      00558 
+                      00559 ;D3232QZERO
+                      00560 ;               MOVFF           AARGB3,REMB3
+                      00561 ;               CLRF            AARGB3
+                      00562                 
+                      00563 ;D2424QZERO
+                      00564 ;               MOVFF           AARGB2,REMB2
+                      00565 ;               CLRF            AARGB2
+                      00566                 
+000376                00567 D1616QZERO
+000376 C??? F???      00568                 MOVFF           AARGB1,REMB1
+00037A 6A??           00569                 CLRF            AARGB1
+00037C C??? F???      00570                 MOVFF           AARGB0,REMB0
+000380 6A??           00571                 CLRF            AARGB0
+000382 0C00           00572                 RETLW           0x00
+                      00573 
+000384                00574 DREMZERO8
+MPASM 5.54                       PIDMATH.ASM   10-25-2017  22:30:33         PAGE 12
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+000384 6A??           00575                 CLRF            REMB0
+000386 0C00           00576                 RETLW           0x00
+                      00577 
+                      00578 ;----------------------------------------------------------------------------------------------
+                      00579 ;       The table IBXTBL256 is used by all routines and consists of 16-bit
+                      00580 ;       upper bound approximations to the reciprocal of BARGB0.
+                      00581 
+000388                00582 IBXTBL256
+  0000                00583                 GLOBAL  IBXTBL256
+                      00584 
+000388 0000           00585                 DATA    0x0000
+00038A 0001           00586                 DATA    0x0001
+00038C 8001           00587                 DATA    0x8001
+00038E 5556           00588                 DATA    0x5556
+000390 4001           00589                 DATA    0x4001
+000392 3334           00590                 DATA    0x3334
+000394 2AAB           00591                 DATA    0x2AAB
+000396 2493           00592                 DATA    0x2493
+000398 2001           00593                 DATA    0x2001
+00039A 1C72           00594                 DATA    0x1C72
+00039C 199A           00595                 DATA    0x199A
+00039E 1746           00596                 DATA    0x1746
+0003A0 1556           00597                 DATA    0x1556
+0003A2 13B2           00598                 DATA    0x13B2
+0003A4 124A           00599                 DATA    0x124A
+0003A6 1112           00600                 DATA    0x1112
+0003A8 1001           00601                 DATA    0x1001
+0003AA 0F10           00602                 DATA    0x0F10
+0003AC 0E39           00603                 DATA    0x0E39
+0003AE 0D7A           00604                 DATA    0x0D7A
+0003B0 0CCD           00605                 DATA    0x0CCD
+0003B2 0C31           00606                 DATA    0x0C31
+0003B4 0BA3           00607                 DATA    0x0BA3
+0003B6 0B22           00608                 DATA    0x0B22
+0003B8 0AAB           00609                 DATA    0x0AAB
+0003BA 0A3E           00610                 DATA    0x0A3E
+0003BC 09D9           00611                 DATA    0x09D9
+0003BE 097C           00612                 DATA    0x097C
+0003C0 0925           00613                 DATA    0x0925
+0003C2 08D4           00614                 DATA    0x08D4
+0003C4 0889           00615                 DATA    0x0889
+0003C6 0843           00616                 DATA    0x0843
+0003C8 0801           00617                 DATA    0x0801
+0003CA 07C2           00618                 DATA    0x07C2
+0003CC 0788           00619                 DATA    0x0788
+0003CE 0751           00620                 DATA    0x0751
+0003D0 071D           00621                 DATA    0x071D
+0003D2 06EC           00622                 DATA    0x06EC
+0003D4 06BD           00623                 DATA    0x06BD
+0003D6 0691           00624                 DATA    0x0691
+0003D8 0667           00625                 DATA    0x0667
+0003DA 063F           00626                 DATA    0x063F
+0003DC 0619           00627                 DATA    0x0619
+MPASM 5.54                       PIDMATH.ASM   10-25-2017  22:30:33         PAGE 13
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+0003DE 05F5           00628                 DATA    0x05F5
+0003E0 05D2           00629                 DATA    0x05D2
+0003E2 05B1           00630                 DATA    0x05B1
+0003E4 0591           00631                 DATA    0x0591
+0003E6 0573           00632                 DATA    0x0573
+0003E8 0556           00633                 DATA    0x0556
+0003EA 053A           00634                 DATA    0x053A
+0003EC 051F           00635                 DATA    0x051F
+0003EE 0506           00636                 DATA    0x0506
+0003F0 04ED           00637                 DATA    0x04ED
+0003F2 04D5           00638                 DATA    0x04D5
+0003F4 04BE           00639                 DATA    0x04BE
+0003F6 04A8           00640                 DATA    0x04A8
+0003F8 0493           00641                 DATA    0x0493
+0003FA 047E           00642                 DATA    0x047E
+0003FC 046A           00643                 DATA    0x046A
+0003FE 0457           00644                 DATA    0x0457
+000400 0445           00645                 DATA    0x0445
+000402 0433           00646                 DATA    0x0433
+000404 0422           00647                 DATA    0x0422
+000406 0411           00648                 DATA    0x0411
+000408 0401           00649                 DATA    0x0401
+00040A 03F1           00650                 DATA    0x03F1
+00040C 03E1           00651                 DATA    0x03E1
+00040E 03D3           00652                 DATA    0x03D3
+000410 03C4           00653                 DATA    0x03C4
+000412 03B6           00654                 DATA    0x03B6
+000414 03A9           00655                 DATA    0x03A9
+000416 039C           00656                 DATA    0x039C
+000418 038F           00657                 DATA    0x038F
+00041A 0382           00658                 DATA    0x0382
+00041C 0376           00659                 DATA    0x0376
+00041E 036A           00660                 DATA    0x036A
+000420 035F           00661                 DATA    0x035F
+000422 0354           00662                 DATA    0x0354
+000424 0349           00663                 DATA    0x0349
+000426 033E           00664                 DATA    0x033E
+000428 0334           00665                 DATA    0x0334
+00042A 032A           00666                 DATA    0x032A
+00042C 0320           00667                 DATA    0x0320
+00042E 0316           00668                 DATA    0x0316
+000430 030D           00669                 DATA    0x030D
+000432 0304           00670                 DATA    0x0304
+000434 02FB           00671                 DATA    0x02FB
+000436 02F2           00672                 DATA    0x02F2
+000438 02E9           00673                 DATA    0x02E9
+00043A 02E1           00674                 DATA    0x02E1
+00043C 02D9           00675                 DATA    0x02D9
+00043E 02D1           00676                 DATA    0x02D1
+000440 02C9           00677                 DATA    0x02C9
+000442 02C1           00678                 DATA    0x02C1
+000444 02BA           00679                 DATA    0x02BA
+000446 02B2           00680                 DATA    0x02B2
+MPASM 5.54                       PIDMATH.ASM   10-25-2017  22:30:33         PAGE 14
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+000448 02AB           00681                 DATA    0x02AB
+00044A 02A4           00682                 DATA    0x02A4
+00044C 029D           00683                 DATA    0x029D
+00044E 0296           00684                 DATA    0x0296
+000450 0290           00685                 DATA    0x0290
+000452 0289           00686                 DATA    0x0289
+000454 0283           00687                 DATA    0x0283
+000456 027D           00688                 DATA    0x027D
+000458 0277           00689                 DATA    0x0277
+00045A 0271           00690                 DATA    0x0271
+00045C 026B           00691                 DATA    0x026B
+00045E 0265           00692                 DATA    0x0265
+000460 025F           00693                 DATA    0x025F
+000462 025A           00694                 DATA    0x025A
+000464 0254           00695                 DATA    0x0254
+000466 024F           00696                 DATA    0x024F
+000468 024A           00697                 DATA    0x024A
+00046A 0244           00698                 DATA    0x0244
+00046C 023F           00699                 DATA    0x023F
+00046E 023A           00700                 DATA    0x023A
+000470 0235           00701                 DATA    0x0235
+000472 0231           00702                 DATA    0x0231
+000474 022C           00703                 DATA    0x022C
+000476 0227           00704                 DATA    0x0227
+000478 0223           00705                 DATA    0x0223
+00047A 021E           00706                 DATA    0x021E
+00047C 021A           00707                 DATA    0x021A
+00047E 0215           00708                 DATA    0x0215
+000480 0211           00709                 DATA    0x0211
+000482 020D           00710                 DATA    0x020D
+000484 0209           00711                 DATA    0x0209
+000486 0205           00712                 DATA    0x0205
+000488 0201           00713                 DATA    0x0201
+00048A 01FD           00714                 DATA    0x01FD
+00048C 01F9           00715                 DATA    0x01F9
+00048E 01F5           00716                 DATA    0x01F5
+000490 01F1           00717                 DATA    0x01F1
+000492 01ED           00718                 DATA    0x01ED
+000494 01EA           00719                 DATA    0x01EA
+000496 01E6           00720                 DATA    0x01E6
+000498 01E2           00721                 DATA    0x01E2
+00049A 01DF           00722                 DATA    0x01DF
+00049C 01DB           00723                 DATA    0x01DB
+00049E 01D8           00724                 DATA    0x01D8
+0004A0 01D5           00725                 DATA    0x01D5
+0004A2 01D1           00726                 DATA    0x01D1
+0004A4 01CE           00727                 DATA    0x01CE
+0004A6 01CB           00728                 DATA    0x01CB
+0004A8 01C8           00729                 DATA    0x01C8
+0004AA 01C4           00730                 DATA    0x01C4
+0004AC 01C1           00731                 DATA    0x01C1
+0004AE 01BE           00732                 DATA    0x01BE
+0004B0 01BB           00733                 DATA    0x01BB
+MPASM 5.54                       PIDMATH.ASM   10-25-2017  22:30:33         PAGE 15
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+0004B2 01B8           00734                 DATA    0x01B8
+0004B4 01B5           00735                 DATA    0x01B5
+0004B6 01B3           00736                 DATA    0x01B3
+0004B8 01B0           00737                 DATA    0x01B0
+0004BA 01AD           00738                 DATA    0x01AD
+0004BC 01AA           00739                 DATA    0x01AA
+0004BE 01A7           00740                 DATA    0x01A7
+0004C0 01A5           00741                 DATA    0x01A5
+0004C2 01A2           00742                 DATA    0x01A2
+0004C4 019F           00743                 DATA    0x019F
+0004C6 019D           00744                 DATA    0x019D
+0004C8 019A           00745                 DATA    0x019A
+0004CA 0198           00746                 DATA    0x0198
+0004CC 0195           00747                 DATA    0x0195
+0004CE 0193           00748                 DATA    0x0193
+0004D0 0190           00749                 DATA    0x0190
+0004D2 018E           00750                 DATA    0x018E
+0004D4 018B           00751                 DATA    0x018B
+0004D6 0189           00752                 DATA    0x0189
+0004D8 0187           00753                 DATA    0x0187
+0004DA 0184           00754                 DATA    0x0184
+0004DC 0182           00755                 DATA    0x0182
+0004DE 0180           00756                 DATA    0x0180
+0004E0 017E           00757                 DATA    0x017E
+0004E2 017B           00758                 DATA    0x017B
+0004E4 0179           00759                 DATA    0x0179
+0004E6 0177           00760                 DATA    0x0177
+0004E8 0175           00761                 DATA    0x0175
+0004EA 0173           00762                 DATA    0x0173
+0004EC 0171           00763                 DATA    0x0171
+0004EE 016F           00764                 DATA    0x016F
+0004F0 016D           00765                 DATA    0x016D
+0004F2 016B           00766                 DATA    0x016B
+0004F4 0169           00767                 DATA    0x0169
+0004F6 0167           00768                 DATA    0x0167
+0004F8 0165           00769                 DATA    0x0165
+0004FA 0163           00770                 DATA    0x0163
+0004FC 0161           00771                 DATA    0x0161
+0004FE 015F           00772                 DATA    0x015F
+000500 015D           00773                 DATA    0x015D
+000502 015B           00774                 DATA    0x015B
+000504 0159           00775                 DATA    0x0159
+000506 0158           00776                 DATA    0x0158
+000508 0156           00777                 DATA    0x0156
+00050A 0154           00778                 DATA    0x0154
+00050C 0152           00779                 DATA    0x0152
+00050E 0151           00780                 DATA    0x0151
+000510 014F           00781                 DATA    0x014F
+000512 014D           00782                 DATA    0x014D
+000514 014B           00783                 DATA    0x014B
+000516 014A           00784                 DATA    0x014A
+000518 0148           00785                 DATA    0x0148
+00051A 0147           00786                 DATA    0x0147
+MPASM 5.54                       PIDMATH.ASM   10-25-2017  22:30:33         PAGE 16
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+00051C 0145           00787                 DATA    0x0145
+00051E 0143           00788                 DATA    0x0143
+000520 0142           00789                 DATA    0x0142
+000522 0140           00790                 DATA    0x0140
+000524 013F           00791                 DATA    0x013F
+000526 013D           00792                 DATA    0x013D
+000528 013C           00793                 DATA    0x013C
+00052A 013A           00794                 DATA    0x013A
+00052C 0139           00795                 DATA    0x0139
+00052E 0137           00796                 DATA    0x0137
+000530 0136           00797                 DATA    0x0136
+000532 0134           00798                 DATA    0x0134
+000534 0133           00799                 DATA    0x0133
+000536 0131           00800                 DATA    0x0131
+000538 0130           00801                 DATA    0x0130
+00053A 012F           00802                 DATA    0x012F
+00053C 012D           00803                 DATA    0x012D
+00053E 012C           00804                 DATA    0x012C
+000540 012A           00805                 DATA    0x012A
+000542 0129           00806                 DATA    0x0129
+000544 0128           00807                 DATA    0x0128
+000546 0126           00808                 DATA    0x0126
+000548 0125           00809                 DATA    0x0125
+00054A 0124           00810                 DATA    0x0124
+00054C 0122           00811                 DATA    0x0122
+00054E 0121           00812                 DATA    0x0121
+000550 0120           00813                 DATA    0x0120
+000552 011F           00814                 DATA    0x011F
+000554 011D           00815                 DATA    0x011D
+000556 011C           00816                 DATA    0x011C
+000558 011B           00817                 DATA    0x011B
+00055A 011A           00818                 DATA    0x011A
+00055C 0119           00819                 DATA    0x0119
+00055E 0117           00820                 DATA    0x0117
+000560 0116           00821                 DATA    0x0116
+000562 0115           00822                 DATA    0x0115
+000564 0114           00823                 DATA    0x0114
+000566 0113           00824                 DATA    0x0113
+000568 0112           00825                 DATA    0x0112
+00056A 0110           00826                 DATA    0x0110
+00056C 010F           00827                 DATA    0x010F
+00056E 010E           00828                 DATA    0x010E
+000570 010D           00829                 DATA    0x010D
+000572 010C           00830                 DATA    0x010C
+000574 010B           00831                 DATA    0x010B
+000576 010A           00832                 DATA    0x010A
+000578 0109           00833                 DATA    0x0109
+00057A 0108           00834                 DATA    0x0108
+00057C 0107           00835                 DATA    0x0107
+00057E 0106           00836                 DATA    0x0106
+000580 0105           00837                 DATA    0x0105
+000582 0104           00838                 DATA    0x0104
+000584 0103           00839                 DATA    0x0103
+MPASM 5.54                       PIDMATH.ASM   10-25-2017  22:30:33         PAGE 17
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+000586 0102           00840                 DATA    0x0102
+000588 0101           00841                 DATA    0x0101  
+                      00842  
+                      00843                 end
+MPASM 5.54                       PIDMATH.ASM   10-25-2017  22:30:33         PAGE 18
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+A                                 00000000
+AARGB0                            00000000
+AARGB1                            00000001
+AARGB2                            00000002
+AARGB3                            00000003
+ACCESS                            00000000
+ACKDT                             00000005
+ACKEN                             00000004
+ACKSTAT                           00000006
+ADCON0                            00000FC2
+ADCON1                            00000FC1
+ADCS0                             00000006
+ADCS1                             00000007
+ADCS2                             00000006
+ADDEN                             00000003
+ADFM                              00000007
+ADIE                              00000006
+ADIF                              00000006
+ADIP                              00000006
+ADON                              00000000
+ADRES                             00000FC3
+ADRESH                            00000FC4
+ADRESL                            00000FC3
+AEXP                              00000015
+AN0                               00000000
+AN1                               00000001
+AN2                               00000002
+AN3                               00000003
+AN4                               00000005
+AN5                               00000000
+AN6                               00000001
+AN7                               00000002
+BANKED                            00000001
+BARGB0                            00000004
+BARGB1                            00000005
+BARGB2                            00000006
+BARGB3                            00000007
+BCLIE                             00000003
+BCLIF                             00000003
+BCLIP                             00000003
+BF                                00000000
+BOR                               00000000
+BRGH                              00000002
+BSR                               00000FE0
+C                                 00000000
+CARGB2                            00000014
+CCP1                              00000002
+CCP1CON                           00000FBD
+CCP1IE                            00000002
+CCP1IF                            00000002
+CCP1IP                            00000002
+CCP1M0                            00000000
+CCP1M1                            00000001
+MPASM 5.54                       PIDMATH.ASM   10-25-2017  22:30:33         PAGE 19
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+CCP1M2                            00000002
+CCP1M3                            00000003
+CCP1X                             00000005
+CCP1Y                             00000004
+CCP2A                             00000003
+CCP2CON                           00000FBA
+CCP2IE                            00000000
+CCP2IF                            00000000
+CCP2IP                            00000000
+CCP2M0                            00000000
+CCP2M1                            00000001
+CCP2M2                            00000002
+CCP2M3                            00000003
+CCP2X                             00000005
+CCP2Y                             00000004
+CCP2_DDRB                         00000003
+CCP2_DDRC                         00000001
+CCP2_PORTB                        00000003
+CCP2_PORTC                        00000001
+CCP2_TRISB                        00000003
+CCP2_TRISC                        00000001
+CCPR1                             00000FBE
+CCPR1H                            00000FBF
+CCPR1L                            00000FBE
+CCPR2                             00000FBB
+CCPR2H                            00000FBC
+CCPR2L                            00000FBB
+CFGS                              00000006
+CHS0                              00000003
+CHS1                              00000004
+CHS2                              00000005
+CK                                00000006
+CKE                               00000006
+CKP                               00000004
+CLKO                              00000006
+CREN                              00000004
+CS                                00000002
+CSRC                              00000007
+D                                 00000005
+D1616AGEB                         000002C6
+D1616B0GT0                        000002AC
+D1616QOK                          00000348
+D1616QZERO                        00000376
+D1616UNRMOK                       00000320
+D1616UQOK                         00000334
+D2416AGTB                         000000A2
+D2416BGT1                         00000084
+D2416FIXREM                       000001AE
+D2416QOK                          00000194
+D2416REMOK                        000001D6
+D2416ULOOP                        00000118
+D2416UNRMOK                       00000106
+D2416UQOK                         00000168
+MPASM 5.54                       PIDMATH.ASM   10-25-2017  22:30:33         PAGE 20
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+D2416UQTEST                       0000013A
+DATA_ADDRESS                      00000005
+DC                                00000001
+DC1B0                             00000004
+DC1B1                             00000005
+DC2B0                             00000004
+DC2B1                             00000005
+DCCPX                             00000005
+DDRA                              TRISA
+DDRB                              TRISB
+DDRC                              TRISC
+DDRD                              TRISD
+DDRE                              TRISE
+DGETNRMD                          00000352
+DGETNRMDH                         0000036A
+DGETNRMDL                         0000035A
+DONE                              00000002
+DREMZERO8                         00000384
+D_A                               00000005
+D_NOT_A                           00000005
+EEADR                             00000FA9
+EECON1                            00000FA6
+EECON2                            00000FA7
+EEDATA                            00000FA8
+EEIE                              00000004
+EEIF                              00000004
+EEIP                              00000004
+EEPGD                             00000007
+FAST                              00000001
+FERR                              00000002
+FREE                              00000004
+FSR0                              00000000
+FSR0H                             00000FEA
+FSR0L                             00000FE9
+FSR1                              00000001
+FSR1H                             00000FE2
+FSR1L                             00000FE1
+FSR2                              00000002
+FSR2H                             00000FDA
+FSR2L                             00000FD9
+FXD1608U                          00000214
+FXD1608U1                         0000021C
+FXD1608U2                         0000022E
+FXD1616U                          00000296
+FXD2408U                          000001E2
+FXD2416U                          00000068
+FXM1616U                          0000002C
+GCEN                              00000007
+GIE                               00000007
+GIEH                              00000007
+GIEL                              00000006
+GIE_GIEH                          00000007
+GO                                00000002
+MPASM 5.54                       PIDMATH.ASM   10-25-2017  22:30:33         PAGE 21
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+GO_DONE                           00000002
+GO_NOT_DONE                       00000002
+I2C_DAT                           00000005
+I2C_DATA                          00000005
+I2C_READ                          00000002
+I2C_START                         00000003
+I2C_STOP                          00000004
+IBF                               00000007
+IBOV                              00000005
+IBXTBL256                         00000388
+INDF0                             00000FEF
+INDF1                             00000FE7
+INDF2                             00000FDF
+INT0                              00000000
+INT0E                             00000004
+INT0F                             00000001
+INT0IE                            00000004
+INT0IF                            00000001
+INT1                              00000001
+INT1E                             00000003
+INT1F                             00000000
+INT1IE                            00000003
+INT1IF                            00000000
+INT1IP                            00000006
+INT1P                             00000006
+INT2                              00000002
+INT2E                             00000004
+INT2F                             00000001
+INT2IE                            00000004
+INT2IF                            00000001
+INT2IP                            00000007
+INT2P                             00000007
+INTCON                            00000FF2
+INTCON1                           00000FF2
+INTCON2                           00000FF1
+INTCON3                           00000FF0
+INTEDG0                           00000006
+INTEDG1                           00000005
+INTEDG2                           00000004
+IPEN                              00000007
+IPR1                              00000F9F
+IPR2                              00000FA2
+IRVST                             00000005
+LATA                              00000F89
+LATA0                             00000000
+LATA1                             00000001
+LATA2                             00000002
+LATA3                             00000003
+LATA4                             00000004
+LATA5                             00000005
+LATA6                             00000006
+LATB                              00000F8A
+LATB0                             00000000
+MPASM 5.54                       PIDMATH.ASM   10-25-2017  22:30:33         PAGE 22
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+LATB1                             00000001
+LATB2                             00000002
+LATB3                             00000003
+LATB4                             00000004
+LATB5                             00000005
+LATB6                             00000006
+LATB7                             00000007
+LATC                              00000F8B
+LATC0                             00000000
+LATC1                             00000001
+LATC2                             00000002
+LATC3                             00000003
+LATC4                             00000004
+LATC5                             00000005
+LATC6                             00000006
+LATC7                             00000007
+LATD                              00000F8C
+LATD0                             00000000
+LATD1                             00000001
+LATD2                             00000002
+LATD3                             00000003
+LATD4                             00000004
+LATD5                             00000005
+LATD6                             00000006
+LATD7                             00000007
+LATE                              00000F8D
+LATE0                             00000000
+LATE1                             00000001
+LATE2                             00000002
+LOOPCOUNT                         00000016
+LSB                               00000000
+LVDCON                            00000FD2
+LVDEN                             00000004
+LVDIE                             00000002
+LVDIF                             00000002
+LVDIN                             00000005
+LVDIP                             00000002
+LVDL0                             00000000
+LVDL1                             00000001
+LVDL2                             00000002
+LVDL3                             00000003
+MSB                               00000007
+N                                 00000004
+NOT_A                             00000005
+NOT_ADDRESS                       00000005
+NOT_BOR                           00000000
+NOT_DONE                          00000002
+NOT_IPEN                          00000007
+NOT_PD                            00000002
+NOT_POR                           00000001
+NOT_RBPU                          00000007
+NOT_RC8                           00000006
+NOT_RI                            00000004
+MPASM 5.54                       PIDMATH.ASM   10-25-2017  22:30:33         PAGE 23
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+NOT_T1SYNC                        00000002
+NOT_T3SYNC                        00000002
+NOT_TO                            00000003
+NOT_TX8                           00000006
+NOT_W                             00000002
+NOT_WRITE                         00000002
+OBF                               00000006
+OERR                              00000001
+OSC2                              00000006
+OSCCON                            00000FD3
+OV                                00000003
+P                                 00000004
+PC                                00000FF9
+PCFG0                             00000000
+PCFG1                             00000001
+PCFG2                             00000002
+PCFG3                             00000003
+PCL                               00000FF9
+PCLATH                            00000FFA
+PCLATU                            00000FFB
+PD                                00000002
+PEIE                              00000006
+PEIE_GIEL                         00000006
+PEN                               00000002
+PGC                               00000006
+PGD                               00000007
+PGM                               00000005
+PIE1                              00000F9D
+PIE2                              00000FA0
+PIR1                              00000F9E
+PIR2                              00000FA1
+PLUSW0                            00000FEB
+PLUSW1                            00000FE3
+PLUSW2                            00000FDB
+POR                               00000001
+PORTA                             00000F80
+PORTB                             00000F81
+PORTC                             00000F82
+PORTD                             00000F83
+PORTE                             00000F84
+POSTDEC0                          00000FED
+POSTDEC1                          00000FE5
+POSTDEC2                          00000FDD
+POSTINC0                          00000FEE
+POSTINC1                          00000FE6
+POSTINC2                          00000FDE
+PR2                               00000FCB
+PREINC0                           00000FEC
+PREINC1                           00000FE4
+PREINC2                           00000FDC
+PROD                              00000FF3
+PRODH                             00000FF4
+PRODL                             00000FF3
+MPASM 5.54                       PIDMATH.ASM   10-25-2017  22:30:33         PAGE 24
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+PSA                               00000003
+PSP0                              00000000
+PSP1                              00000001
+PSP2                              00000002
+PSP3                              00000003
+PSP4                              00000004
+PSP5                              00000005
+PSP6                              00000006
+PSP7                              00000007
+PSPIE                             00000007
+PSPIF                             00000007
+PSPIP                             00000007
+PSPMODE                           00000004
+R                                 00000002
+RA0                               00000000
+RA1                               00000001
+RA2                               00000002
+RA3                               00000003
+RA4                               00000004
+RA5                               00000005
+RA6                               00000006
+RB0                               00000000
+RB1                               00000001
+RB2                               00000002
+RB3                               00000003
+RB4                               00000004
+RB5                               00000005
+RB6                               00000006
+RB7                               00000007
+RBIE                              00000003
+RBIF                              00000000
+RBIP                              00000000
+RBPU                              00000007
+RC0                               00000000
+RC1                               00000001
+RC2                               00000002
+RC3                               00000003
+RC4                               00000004
+RC5                               00000005
+RC6                               00000006
+RC7                               00000007
+RC8_9                             00000006
+RC9                               00000006
+RCD8                              00000000
+RCEN                              00000003
+RCIE                              00000005
+RCIF                              00000005
+RCIP                              00000005
+RCON                              00000FD0
+RCREG                             00000FAE
+RCSTA                             00000FAB
+RD                                00000000
+RD0                               00000000
+MPASM 5.54                       PIDMATH.ASM   10-25-2017  22:30:33         PAGE 25
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+RD1                               00000001
+RD16                              00000007
+RD2                               00000002
+RD3                               00000003
+RD4                               00000004
+RD5                               00000005
+RD6                               00000006
+RD7                               00000007
+RE0                               00000000
+RE1                               00000001
+RE2                               00000002
+READ_WRITE                        00000002
+REMB0                             00000008
+REMB1                             00000009
+REMB2                             0000000A
+REMB3                             0000000B
+RI                                00000004
+RSEN                              00000001
+RX                                00000007
+RX9                               00000006
+RX9D                              00000000
+R_NOT_W                           00000002
+R_W                               00000002
+S                                 00000003
+SCK                               00000003
+SCL                               00000003
+SCS                               00000000
+SDA                               00000004
+SDI                               00000004
+SDO                               00000005
+SEN                               00000000
+SMP                               00000007
+SP0                               00000000
+SP1                               00000001
+SP2                               00000002
+SP3                               00000003
+SP4                               00000004
+SPBRG                             00000FAF
+SPEN                              00000007
+SREN                              00000005
+SS                                00000005
+SSPADD                            00000FC8
+SSPBUF                            00000FC9
+SSPCON1                           00000FC6
+SSPCON2                           00000FC5
+SSPEN                             00000005
+SSPIE                             00000003
+SSPIF                             00000003
+SSPIP                             00000003
+SSPM0                             00000000
+SSPM1                             00000001
+SSPM2                             00000002
+SSPM3                             00000003
+MPASM 5.54                       PIDMATH.ASM   10-25-2017  22:30:33         PAGE 26
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+SSPOV                             00000006
+SSPSTAT                           00000FC7
+STATUS                            00000FD8
+STKFUL                            00000007
+STKOVF                            00000007
+STKPTR                            00000FFC
+STKPTR0                           00000000
+STKPTR1                           00000001
+STKPTR2                           00000002
+STKPTR3                           00000003
+STKPTR4                           00000004
+STKUNF                            00000006
+SWDTE                             00000000
+SWDTEN                            00000000
+SYNC                              00000004
+T08BIT                            00000006
+T0CKI                             00000004
+T0CON                             00000FD5
+T0CS                              00000005
+T0IE                              00000005
+T0IF                              00000002
+T0IP                              00000002
+T0PS0                             00000000
+T0PS1                             00000001
+T0PS2                             00000002
+T0SE                              00000004
+T1CKI                             00000000
+T1CKPS0                           00000004
+T1CKPS1                           00000005
+T1CON                             00000FCD
+T1INSYNC                          00000002
+T1OSCEN                           00000003
+T1OSI                             00000001
+T1OSO                             00000000
+T1SYNC                            00000002
+T2CKPS0                           00000000
+T2CKPS1                           00000001
+T2CON                             00000FCA
+T3CCP1                            00000003
+T3CCP2                            00000006
+T3CKPS0                           00000004
+T3CKPS1                           00000005
+T3CON                             00000FB1
+T3INSYNC                          00000002
+T3SYNC                            00000002
+TABLAT                            00000FF5
+TBLPTR                            00000FF6
+TBLPTRH                           00000FF7
+TBLPTRL                           00000FF6
+TBLPTRU                           00000FF8
+TEMP                              0000000C
+TEMPB0                            0000000D
+TEMPB1                            0000000E
+MPASM 5.54                       PIDMATH.ASM   10-25-2017  22:30:33         PAGE 27
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+TEMPB2                            0000000F
+TEMPB3                            00000010
+TMR0                              00000FD6
+TMR0H                             00000FD7
+TMR0IE                            00000005
+TMR0IF                            00000002
+TMR0IP                            00000002
+TMR0L                             00000FD6
+TMR0ON                            00000007
+TMR1                              00000FCE
+TMR1CS                            00000001
+TMR1H                             00000FCF
+TMR1IE                            00000000
+TMR1IF                            00000000
+TMR1IP                            00000000
+TMR1L                             00000FCE
+TMR1ON                            00000000
+TMR2                              00000FCC
+TMR2IE                            00000001
+TMR2IF                            00000001
+TMR2IP                            00000001
+TMR2ON                            00000002
+TMR3                              00000FB2
+TMR3CS                            00000001
+TMR3H                             00000FB3
+TMR3IE                            00000001
+TMR3IF                            00000001
+TMR3IP                            00000001
+TMR3L                             00000FB2
+TMR3ON                            00000000
+TO                                00000003
+TOS                               00000FFD
+TOSH                              00000FFE
+TOSL                              00000FFD
+TOSU                              00000FFF
+TOUTPS0                           00000003
+TOUTPS1                           00000004
+TOUTPS2                           00000005
+TOUTPS3                           00000006
+TRISA                             00000F92
+TRISA0                            00000000
+TRISA1                            00000001
+TRISA2                            00000002
+TRISA3                            00000003
+TRISA4                            00000004
+TRISA5                            00000005
+TRISA6                            00000006
+TRISB                             00000F93
+TRISB0                            00000000
+TRISB1                            00000001
+TRISB2                            00000002
+TRISB3                            00000003
+TRISB4                            00000004
+MPASM 5.54                       PIDMATH.ASM   10-25-2017  22:30:33         PAGE 28
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+TRISB5                            00000005
+TRISB6                            00000006
+TRISB7                            00000007
+TRISC                             00000F94
+TRISC0                            00000000
+TRISC1                            00000001
+TRISC2                            00000002
+TRISC3                            00000003
+TRISC4                            00000004
+TRISC5                            00000005
+TRISC6                            00000006
+TRISC7                            00000007
+TRISD                             00000F95
+TRISD0                            00000000
+TRISD1                            00000001
+TRISD2                            00000002
+TRISD3                            00000003
+TRISD4                            00000004
+TRISD5                            00000005
+TRISD6                            00000006
+TRISD7                            00000007
+TRISE                             00000F96
+TRISE0                            00000000
+TRISE1                            00000001
+TRISE2                            00000002
+TRMT                              00000001
+TX                                00000006
+TX8_9                             00000006
+TX9                               00000006
+TX9D                              00000000
+TXD8                              00000000
+TXEN                              00000005
+TXIE                              00000004
+TXIF                              00000004
+TXIP                              00000004
+TXREG                             00000FAD
+TXSTA                             00000FAC
+UA                                00000001
+VREFM                             00000002
+VREFP                             00000003
+W                                 00000000
+WCOL                              00000007
+WDTCON                            00000FD1
+WR                                00000001
+WREG                              00000FE8
+WREN                              00000002
+WRERR                             00000003
+Z                                 00000002
+ZARGB0                            00000011
+ZARGB1                            00000012
+ZARGB2                            00000013
+_24_BitAdd                        00000000
+_24_bit_sub                       00000016
+MPASM 5.54                       PIDMATH.ASM   10-25-2017  22:30:33         PAGE 29
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+_BORV_20                          000000FF
+_BORV_20_2L                       000000FF
+_BORV_27_2L                       000000FB
+_BORV_42_2L                       000000F7
+_BORV_45_2L                       000000F3
+_BOR_OFF_2L                       000000FD
+_BOR_ON_2L                        000000FF
+_C                                STATUS,0
+_CCP2MX_OFF                       000000FE
+_CCP2MX_OFF_3H                    000000FE
+_CCP2MX_ON                        000000FF
+_CCP2MX_ON_3H                     000000FF
+_CONFIG1H                         00300001
+_CONFIG2H                         00300003
+_CONFIG2L                         00300002
+_CONFIG3H                         00300005
+_CONFIG4L                         00300006
+_CONFIG5H                         00300009
+_CONFIG5L                         00300008
+_CONFIG6H                         0030000B
+_CONFIG6L                         0030000A
+_CONFIG7H                         0030000D
+_CONFIG7L                         0030000C
+_CP0_OFF_5L                       000000FF
+_CP0_ON_5L                        000000FE
+_CP1_OFF_5L                       000000FF
+_CP1_ON_5L                        000000FD
+_CP2_OFF_5L                       000000FF
+_CP2_ON_5L                        000000FB
+_CP3_OFF_5L                       000000FF
+_CP3_ON_5L                        000000F7
+_CPB_OFF_5H                       000000FF
+_CPB_ON_5H                        000000BF
+_CPD_OFF_5H                       000000FF
+_CPD_ON_5H                        0000007F
+_DEBUG_OFF_4L                     000000FF
+_DEBUG_ON_4L                      0000007F
+_DEVID1                           003FFFFE
+_DEVID2                           003FFFFF
+_EBTR0_OFF_7L                     000000FF
+_EBTR0_ON_7L                      000000FE
+_EBTR1_OFF_7L                     000000FF
+_EBTR1_ON_7L                      000000FD
+_EBTR2_OFF_7L                     000000FF
+_EBTR2_ON_7L                      000000FB
+_EBTR3_OFF_7L                     000000FF
+_EBTR3_ON_7L                      000000F7
+_EBTRB_OFF_7H                     000000FF
+_EBTRB_ON_7H                      000000BF
+_ECIO_OSC                         000000FD
+_ECIO_OSC_1H                      000000FD
+_EC_OSC                           000000FC
+_EC_OSC_1H                        000000FC
+MPASM 5.54                       PIDMATH.ASM   10-25-2017  22:30:33         PAGE 30
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+_HSPLL_OSC                        000000FE
+_HSPLL_OSC_1H                     000000FE
+_HS_OSC                           000000FA
+_HS_OSC_1H                        000000FA
+_IDLOC0                           00200000
+_IDLOC1                           00200001
+_IDLOC2                           00200002
+_IDLOC3                           00200003
+_IDLOC4                           00200004
+_IDLOC5                           00200005
+_IDLOC6                           00200006
+_IDLOC7                           00200007
+_LP_OSC                           000000F8
+_LP_OSC_1H                        000000F8
+_LVP_OFF_4L                       000000FB
+_LVP_ON_4L                        000000FF
+_OSCS_OFF_1H                      000000FF
+_OSCS_ON_1H                       000000DF
+_PWRT_OFF_2L                      000000FF
+_PWRT_ON_2L                       000000FE
+_RCIO_OSC                         000000FF
+_RCIO_OSC_1H                      000000FF
+_RC_OSC                           000000FB
+_RC_OSC_1H                        000000FB
+_STVR_OFF_4L                      000000FE
+_STVR_ON_4L                       000000FF
+_WDTPS_128_2H                     000000FF
+_WDTPS_16_2H                      000000F9
+_WDTPS_1_2H                       000000F1
+_WDTPS_2_2H                       000000F3
+_WDTPS_32_2H                      000000FB
+_WDTPS_4_2H                       000000F5
+_WDTPS_64_2H                      000000FD
+_WDTPS_8_2H                       000000F7
+_WDT_OFF_2H                       000000FE
+_WDT_ON_2H                        000000FF
+_WRT0_OFF_6L                      000000FF
+_WRT0_ON_6L                       000000FE
+_WRT1_OFF_6L                      000000FF
+_WRT1_ON_6L                       000000FD
+_WRT2_OFF_6L                      000000FF
+_WRT2_ON_6L                       000000FB
+_WRT3_OFF_6L                      000000FF
+_WRT3_ON_6L                       000000F7
+_WRTB_OFF_6H                      000000FF
+_WRTB_ON_6H                       000000BF
+_WRTC_OFF_6H                      000000FF
+_WRTC_ON_6H                       000000DF
+_WRTD_OFF_6H                      000000FF
+_WRTD_ON_6H                       0000007F
+_XT_OSC                           000000F9
+_XT_OSC_1H                        000000F9
+_Z                                STATUS,2
+MPASM 5.54                       PIDMATH.ASM   10-25-2017  22:30:33         PAGE 31
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+__18F452                          00000001
+
+Errors   :     0
+Warnings :     0 reported,     0 suppressed
+Messages :     0 reported,     0 suppressed
+
+

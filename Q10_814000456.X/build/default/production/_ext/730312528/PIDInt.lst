@@ -1,0 +1,1855 @@
+MPASM 5.54                        PIDINT.ASM   10-25-2017  22:30:30         PAGE  1
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+                      00001 ;****************************************************************************** 
+                      00002 ;* This file contains PID functions with interrupt.                                                     
+                                    
+                      00003 ;****************************************************************************** 
+                      00004 ;*File name:    PIDInt.asm                                                                              
+                                                            
+                      00005 ;*Dependencies: p18f452.inc (change to specific application requirements)               
+                      00006 ;*Processors:   PIC18                                                                                   
+                                                            
+                      00007 ;*Assembler:    MPASMWIN 02.70.02 or higher                                                             
+                                            
+                      00008 ;*Linker:       MPLINK 2.33.00 or Higher                                                                
+                                            
+                      00009 ;*Company:      Microchip Technology, Inc.                                                              
+                                            
+                      00010 ;*                                                                                                      
+                                                                                    
+                      00011 ;* Software License Agreement                                                                           
+                                                    
+                      00012 ;*                                                                                                      
+                                                                                    
+                      00013 ;* The software supplied herewith by Microchip Technology Incorporated                  
+                      00014 ;* (the "Company") for its PICmicro® Microcontroller is intended and                    
+                      00015 ;* supplied to you, the Company's customer, for use solely and                                  
+                      00016 ;* exclusively on Microchip PICmicro Microcontroller products. The                              
+                      00017 ;* software is owned by the Company and/or its supplier, and is                                 
+                      00018 ;* protected under applicable copyright laws. All rights are reserved.                  
+                      00019 ;* Any use in violation of the foregoing restrictions may subject the                   
+                      00020 ;* user to criminal sanctions under applicable laws, as well as to                              
+                      00021 ;* civil liability for the breach of the terms and conditions of this                   
+                      00022 ;* license.                                                                                             
+                                                                            
+                      00023 ;*                                                                                                      
+                                                                                    
+                      00024 ;* THIS SOFTWARE IS PROVIDED IN AN "AS IS" CONDITION. NO WARRANTIES,                    
+                      00025 ;* WHETHER EXPRESS, IMPLIED OR STATUTORY, INCLUDING, BUT NOT LIMITED                    
+                      00026 ;* TO, IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A                                  
+                      00027 ;* PARTICULAR PURPOSE APPLY TO THIS SOFTWARE. THE COMPANY SHALL NOT,                    
+                      00028 ;* IN ANY CIRCUMSTANCES, BE LIABLE FOR SPECIAL, INCIDENTAL OR                                   
+                      00029 ;* CONSEQUENTIAL DAMAGES, FOR ANY REASON WHATSOEVER.                                                    
+                      00030 ;*
+                      00031 ;*
+                      00032 ;*
+                      00033 ;* Author               Date            Comment                                                         
+                                    
+                      00034 ;*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~                  
+                      00035 ;* C.Valenti              June 29, 2004    Initial Release (V1.0)                                       
+                      00036 ;*                                                                                                      
+                                                                                    
+                      00037 ;* Revisions:                                                                                           
+                                                                    
+                      00038 ;*      7/8/04  -Removed unused variables a_Err1Lim & a_Err2Lim                                         
+                      00039 ;*                      Modified code after the "restore_limit" label to reflect using          
+MPASM 5.54                        PIDINT.ASM   10-25-2017  22:30:30         PAGE  2
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+                      00040 ;*                      aErr1Lim & aErr2Lim defined constants.                                          
+                                            
+                      00041 ;*                      -Changed constant: #define derivCount to #define derivCountVal          
+                      00042 ;*                      -pidStat1 bit comments were corrected to the correct bit #                      
+                      00043 ;*                      -In the PidInterrupt routine, the " movlw derivCountVal " was added     
+                      00044 ;*                      for loading the derivCount variable.                                            
+                                            
+                      00045 ;*                                                                                                      
+                                                                                    
+                      00046 ;*      10/20/04 -Added bra statment to the Derivative routine                                          
+                      00047 ;*                       Amended code for checking the a_Error2 limits.                                 
+                                    
+                      00048 ;*                                                                                                      
+                                                                                    
+                      00049 ;*********************************************************************                  
+                      00050 
+                      00051 ;PID Notes:                                                                                             
+                                                                            
+                      00052 ;       PROPORTIONAL = (system error * Pgain )                                                          
+                                            
+                      00053 ;       System error = error0:error1                                                                    
+                                                    
+                      00054 ;                                                                                                       
+                                                                                    
+                      00055 ;       INTEGRAL = (ACUMULATED ERROR  * Igain)                                                          
+                                            
+                      00056 ;       Accumulated error (a_error) = error0:error1 + a_Error0:a_Error2                         
+                      00057 ;                                                                                                       
+                                                                                    
+                      00058 ;       DERIVATIVE = ((CURRENT ERROR  - PREVIOUS ERROR) * Dgain)                                        
+                      00059 ;       delta error(d_error) = errro0:error1 - p_error0:p_error1                                        
+                      00060 ;                                                                                                       
+                                                                                    
+                      00061 ;       Integral & Derivative control will be based off sample periods of "x" time.     
+                      00062 ;       The above sample period should be based off the PLANT response                          
+                      00063 ;       to control inputs.                                                                              
+                                                                    
+                      00064 ;               SLOW Plant response = LONGER sample periods                                             
+                                            
+                      00065 ;               FAST Plant response = SHORTER sample periods                                            
+                                    
+                      00066 ;                                                                                                       
+                                                                                    
+                      00067 ;       If the error is equal to zero then no PID calculations are completed.           
+                      00068 ;                                                                                                       
+                                                                                    
+                      00069 ;       The PID routine is passed the 16- bit errror data by the main application       
+                      00070 ;       code through the error0:error1 variables.                                                       
+                                            
+                      00071 ;       The sign of this error is passed through the error sign bit:                            
+                      00072 ;                       pidStat1,err_sign                                                               
+                                                                    
+                      00073 ;       The PID outputs a 24-bit vaule in pidOut0:pidOut2 and the sign of this          
+MPASM 5.54                        PIDINT.ASM   10-25-2017  22:30:30         PAGE  3
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+                      00074 ;       result is the pid_sign bit in the pidStat1 register.                                            
+                      00075 ;-----------------------------------------------------------------------                
+                      00076 
+                      00077         list            p=18F452       
+                      00078         #include        <p18f452.inc>  
+                      00001         LIST
+                      00002 
+                      00003 ;==========================================================================
+                      00004 ;  MPASM PIC18F452 processor include
+                      00005 ; 
+                      00006 ;  (c) Copyright 1999-2013 Microchip Technology, All rights reserved
+                      00007 ;==========================================================================
+                      00008 
+                      01254         LIST
+                      00079         
+                      00080 ;***** SYSTEM CONSTANTS
+                      00081 #define aErr1Lim                0x0F    ;accumulative error limits (4000d)
+                      00082 #define aErr2Lim                0xA0
+                      00083 
+                      00084 #define timer1Hi                0x3E    ;Timer1 timeout defined by timer1Lo & timer1Hi
+                      00085 #define timer1Lo                0x0D    ;this timout is based on Fosc/4
+                      00086                                                         
+                      00087 #define derivCountVal   .10             ;determies how often the derivative term will be executed.
+                      00088 
+                      00089 ;#define        pid_100                 ;comment out if not using a 0 - 100% scale
+                      00090 
+                      00091                 
+  0000                00092         EXTERN  FXM1616U,FXD2416U,_24_BitAdd,_24_bit_sub        
+  0000                00093         EXTERN  AARGB0,AARGB1,AARGB2,AARGB3             
+  0000                00094         EXTERN  BARGB0,BARGB1,BARGB2,BARGB3
+                      00095         
+  0000                00096         GLOBAL  error0, error1, pidStat1
+                      00097         
+                      00098 ;***** VARIABLE DEFINITIONS 
+                      00099 
+                      00100 pid_data        UDATA
+                      00101 #ifdef  pid_100
+                      00102 percent_err     RES     1                       ;8-bit error input, 0 - 100% (0 - 100d)
+                      00103 percent_out     RES     1                       ;8-bit output, 0 - 100% (0 - 100d)
+                      00104 #endif  
+                      00105 
+000000                00106 derivCount      RES 1                   ;This value determins how many times the Derivative term is 
+                      00107                                                         ;calculated based on each Integral term.
+000001                00108 pidOut0         RES     1                       ;24-bit Final Result of PID for the "Plant"
+000002                00109 pidOut1         RES     1
+000003                00110 pidOut2         RES     1
+000004                00111 error0          RES     1                       ;16-bit error, passed to the PID
+000005                00112 error1          RES     1                       
+000006                00113 a_Error0        RES     1                       ;24-bit accumulated error, used for Integral term
+000007                00114 a_Error1        RES     1                       
+000008                00115 a_Error2        RES     1
+000009                00116 p_Error0        RES     1                       ;16-bit previous error, used for Derivative term
+00000A                00117 p_Error1        RES     1                       
+MPASM 5.54                        PIDINT.ASM   10-25-2017  22:30:30         PAGE  4
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+00000B                00118 d_Error0        RES     1                       ;16-bit delta error (error - previous error)
+00000C                00119 d_Error1        RES     1
+                      00120 
+00000D                00121 prop0           RES     1                       ;24-bit proportional value 
+00000E                00122 prop1           RES     1
+00000F                00123 prop2           RES     1
+000010                00124 integ0          RES 1                   ;24-bit Integral value 
+000011                00125 integ1          RES     1
+000012                00126 integ2          RES     1
+000013                00127 deriv0          RES 1                   ;24-bit Derivative value 
+000014                00128 deriv1          RES     1
+000015                00129 deriv2          RES     1
+                      00130 
+000016                00131 kp                      RES     1                       ;8-bit proportional Gain
+000017                00132 ki                      RES     1                       ;8-bit integral Gain
+000018                00133 kd                      RES     1                       ;8-bit derivative Gain
+                      00134 
+000019                00135 pidStat1        RES     1                       ;PID bit-status register
+00001A                00136 pidStat2        RES     1                       ;PID bit-status register2
+00001B                00137 tempReg         RES     1                       ;temporary register
+                      00138 
+                      00139 ;                                    pidStat1 register                                             
+                      00140 ;       _______________________________________________________________________________________________
+                      00141 ;       |  bit 7   |   bit 6    |  bit 5 |    bit 4   |   bit 3    |  bit 2   |   bit 1    |  bit 0   |
+                      00142 ;       | pid_sign | d_err_sign |   mag  | p_err_sign | a_err_sign | err_sign |  a_err_z   |  err_z   |
+                      00143 ;       |__________|____________|________|____________|____________|__________|____________|__________|
+                      00144 
+  00000000            00145 err_z           equ     0                       ;error zero flag, Zero = set
+  00000001            00146 a_err_z         equ     1                       ;a_error zero flag, Zero = set
+  00000002            00147 err_sign        equ     2                       ;error sign flag, Pos = set/ Neg = clear
+  00000003            00148 a_err_sign      equ     3                       ;a_error sign flag, Pos = set/ Neg = clear
+  00000004            00149 p_err_sign      equ     4                       ;a_error sign flag, Pos = set/ Neg = clear
+  00000005            00150 mag                     equ     5                       ;set = AARGB magnitude, clear = BARGB magnitude
+  00000006            00151 d_err_sign      equ     6                       ;d_error sign flag, Pos = set/ Neg = clear
+  00000007            00152 pid_sign        equ     7                       ;PID result sign flag, Pos = set/ Neg = clear
+                      00153 
+                      00154 ;       ________________________________ pidStat2 register______________________________________
+                      00155 ;       | bit 7 |  bit 6  |  bit 5   |    bit 4   |   bit 3    | bit 2 |   bit 1    |  bit 0   |
+                      00156 ;       |       |         |          |            |            |       |            | d_err_z  |
+                      00157 ;       |_______|_________|__________|____________|____________|_______|____________|__________|
+                      00158 
+  00000000            00159 d_err_z         equ     0                       ;d_error zero flag, Zero = set
+                      00160 
+                      00161         
+                      00162 _PIDCODE        CODE                    ;start PID code here
+                      00163 ;***********************************************************************;
+                      00164 ; Function: PidInit                                                             ;
+                      00165 ;                                                                       ;
+                      00166 ; PreCondition: Called by the application code for PID initalization    ;
+                      00167 ;                                                                       ;
+                      00168 ; Overview: PID variables are cleared, PID gains are given values,              ;
+                      00169 ;                       flags are initialized.                                                          
+                                            ;
+MPASM 5.54                        PIDINT.ASM   10-25-2017  22:30:30         PAGE  5
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+                      00170 ;                                                                                                       
+                                                                    ;
+                      00171 ; Input:                                                                                                
+                                                            ;
+                      00172 ;                                                                       ;
+                      00173 ; Output: none                                                                  ;
+                      00174 ;                                                                       ;
+                      00175 ; Side Effects: W register is changed                                                           ;
+                      00176 ;                                                                       ;
+                      00177 ; Stack requirement: 1 levels deep                                      ;
+                      00178 ;                                                                       ;
+                      00179 ;***********************************************************************;
+000000                00180 PidInitalize:
+  0000                00181         GLOBAL  PidInitalize
+000000 6A??           00182         clrf    error0                  
+000002 6A??           00183         clrf    error1  
+000004 6A??           00184         clrf    a_Error0        
+000006 6A??           00185         clrf    a_Error1                
+000008 6A??           00186         clrf    a_Error2
+00000A 6A??           00187         clrf    p_Error0
+00000C 6A??           00188         clrf    p_Error1
+00000E 6A??           00189         clrf    d_Error0
+000010 6A??           00190         clrf    d_Error1
+                      00191         
+000012 6A??           00192         clrf    prop0
+000014 6A??           00193         clrf    prop1
+000016 6A??           00194         clrf    prop2
+000018 6A??           00195         clrf    integ0
+00001A 6A??           00196         clrf    integ1
+00001C 6A??           00197         clrf    integ2
+00001E 6A??           00198         clrf    deriv0
+000020 6A??           00199         clrf    deriv1
+000022 6A??           00200         clrf    deriv2
+                      00201         
+000024 6A??           00202         clrf    kp
+000026 6A??           00203         clrf    ki
+000028 6A??           00204         clrf    kd
+                      00205         
+00002A 6A??           00206         clrf    pidOut0
+00002C 6A??           00207         clrf    pidOut1
+00002E 6A??           00208         clrf    pidOut2
+                      00209         
+000030 6A??           00210         clrf    AARGB0
+000032 6A??           00211         clrf    AARGB1
+000034 6A??           00212         clrf    AARGB2
+000036 6A??           00213         clrf    BARGB0
+000038 6A??           00214         clrf    BARGB1
+00003A 6A??           00215         clrf    BARGB2
+                      00216                                 
+00003C 0EA0           00217         movlw   .160                                    ;10 x 16, Kp, Ki & Kd are 8-bit vlaues that cann
+                            ot exceed 255
+00003E 6E??           00218         movwf   kp                                              ;Enter the PID gains scaled by a factor 
+                            of 16, max = 255
+MPASM 5.54                        PIDINT.ASM   10-25-2017  22:30:30         PAGE  6
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+                      00219 
+000040 0EA0           00220         movlw   .160                                    ;10 x 16
+000042 6E??           00221         movwf   ki
+                      00222         
+000044 0EA0           00223         movlw   .160                                    ;10 x 16
+000046 6E??           00224         movwf   kd
+                      00225         
+000048 0E0A           00226         movlw   .10
+00004A 6E??           00227         movwf   derivCount                              ;derivative action = TMR1H:TMR1L * derivCount
+00004C 90??           00228         bcf             pidStat1,err_z                  ;start w/error not equal to zero
+00004E 82??           00229         bsf             pidStat1,a_err_z                ;start w/a_error equal to zero
+000050 80??           00230         bsf             pidStat2,d_err_z                ;start w/d_error equal to zero
+000052 88??           00231         bsf             pidStat1,p_err_sign             ;start w/ previous error = positive
+000054 86??           00232         bsf             pidStat1,a_err_sign             ;start w/ accumulated error = positive  
+                      00233         
+000056 909E           00234         bcf             PIR1,TMR1IF                             ;clear T1 flag
+000058 809D           00235         bsf             PIE1,TMR1IE                             ;enable T1 interrupt
+                      00236         
+00005A 0E01           00237         movlw   b'00000001'                             ;configure T1 for Timer operation from Fosc/4
+00005C 6ECD           00238         movwf   T1CON           
+00005E 0E3E           00239         movlw   timer1Hi                                ;load T1 registers with 5ms count
+000060 6ECF           00240         movwf   TMR1H
+000062 0E0D           00241         movlw   timer1Lo
+000064 6ECE           00242         movwf   TMR1L
+                      00243 
+000066 0012           00244         return                                                  ;return back to the main application cod
+                            e
+                      00245 
+                      00246         
+                      00247 ;***********************************************************************;
+                      00248 ; Function: PidMain                                                             ;
+                      00249 ;                                                                       ;
+                      00250 ; PreCondition: error0:erro1 are loaded with the latest system error    ;
+                      00251 ;                                                                       ;
+                      00252 ; Overview: This is the routine that the application code will call     ;
+                      00253 ;                       to get a PID correction value. First, the error is checked      ;
+                      00254 ;                       to determine if it is zero, if this is true, then the PID       ;
+                      00255 ;                       code is complete.                                                               
+                                                    ;
+                      00256 ;                                                                                                       
+                                                                    ;
+                      00257 ; Input: error0:error1, sign of the error: pidStat1,err_sign            ;
+                      00258 ;                                                                       ;
+                      00259 ; Output: prop0:prop2                                                   ;
+                      00260 ;                                                                       ;
+                      00261 ; Side Effects: W register is changed                                                           ;
+                      00262 ;                                                                       ;
+                      00263 ; Stack requirement: 5 levels deep                                      ;
+                      00264 ;                                                                       ;
+                      00265 ;***********************************************************************;
+000068                00266 PidMain:
+  0000                00267         GLOBAL  PidMain
+000068 909D           00268         bcf             PIE1,TMR1IE                     ;disable T1 interrupt
+MPASM 5.54                        PIDINT.ASM   10-25-2017  22:30:30         PAGE  7
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+                      00269 #ifdef          pid_100                         ;if using % scale then scale up PLANT error
+                      00270         movlw   .40                                     ; 0 - 100% == 0 - 4000d                 
+                      00271         mulwf   percent_err,1           ;40 * percent_err --> PRODH:PRODL
+                      00272         movff   PRODH,error0            
+                      00273         movff   PRODL,error1            ;percentage has been scaled and available in error0:error1
+                      00274 #endif                  
+00006A 0E00           00275         movlw   0
+00006C 62??           00276         cpfseq  error0                          ;Is error0 = 00 ?
+00006E D???           00277         bra             call_pid_terms          ;NO, done checking
+                      00278         
+000070 62??           00279         cpfseq  error1                          ;YES, Is error1 = 00 ?
+000072 D???           00280         bra             call_pid_terms          ;NO, start proportional term
+000074 80??           00281         bsf             pidStat1,err_z          ;YES, set error zero flag
+000076 809D           00282         bsf             PIE1,TMR1IE                     ;enable T1 interrupt
+000078 0012           00283         return                                          ;return back to the main application code
+                      00284         
+00007A                00285 call_pid_terms
+00007A EC?? F???      00286         call    Proportional            ;NO, start with proportional term
+00007E EC?? F???      00287         call    Integral                        ;get Integral term      
+000082 EC?? F???      00288         call    Derivative                      ;get Derivative term
+                      00289 
+000086 EC?? F???      00290         call    GetPidResult            ;get the final PID result that will go to the system
+00008A 809D           00291         bsf             PIE1,TMR1IE                     ;enable T1 interrupt
+00008C 0012           00292         return                                          ;return back to the main application code
+                      00293                 
+                      00294                 
+                      00295 ;***********************************************************************;
+                      00296 ; Function: Proportional                                                ;
+                      00297 ;                                                                       ;
+                      00298 ; PreCondition: error0:erro1 are loaded with the latest system error    ;
+                      00299 ;                                                                       ;
+                      00300 ; Overview: This routine will multiply the system's 16-bit error by the ;
+                      00301 ;           proportional gain(Kp) --> error0:error1 * Kp                                ;
+                      00302 ;                                                                                                       
+                                                                    ;
+                      00303 ; Input: error0:error1, sign of the error: pidStat1,err_sign            ;
+                      00304 ;                                                                       ;
+                      00305 ; Output: prop0:prop2                                                   ;
+                      00306 ;                                                                       ;
+                      00307 ; Side Effects: W register is changed                                                           ;
+                      00308 ;                                                                       ;
+                      00309 ; Stack requirement: 2 levels deep                                      ;
+                      00310 ;                                                                       ;
+                      00311 ;***********************************************************************;
+00008E                00312 Proportional:
+00008E 6A??           00313         clrf    BARGB0                                          
+000090 C??? F???      00314         movff   kp,BARGB1       
+000094 C??? F???      00315         movff   error0,AARGB0                                                   
+000098 C??? F???      00316         movff   error1,AARGB1
+00009C EC?? F???      00317         call    FXM1616U                        ;proportional gain * error      
+                      00318 
+0000A0 C??? F???      00319         movff   AARGB1,prop0            ;AARGB2 --> prop0
+0000A4 C??? F???      00320         movff   AARGB2,prop1            ;AARGB3 --> prop1
+MPASM 5.54                        PIDINT.ASM   10-25-2017  22:30:30         PAGE  8
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+0000A8 C??? F???      00321         movff   AARGB3,prop2            ;AARGB4 --> prop2
+0000AC 0012           00322         return                                          ;return to mainline code
+                      00323         
+                      00324         
+                      00325 ;***********************************************************************;
+                      00326 ; Function: Integral                                                    ;
+                      00327 ;                                                                       ;
+                      00328 ; PreCondition:  error0:erro1 are loaded with the latest system error   ;
+                      00329 ;                                                                       ;
+                      00330 ; Overview: This routine will multiply the system's 16-bit accumulated  ;
+                      00331 ;           error by the integral gain(Ki)--> a_Error0:a_Error1 * Ki    ;
+                      00332 ;                                                                                                       
+                                                                    ;
+                      00333 ; Input: a_Error0:a_Error1, sign of a_Error: pidStat1,a_err_sign        ;
+                      00334 ;                                                                       ;
+                      00335 ; Output: integ0:integ2                                                 ;
+                      00336 ;                                                                       ;
+                      00337 ; Side Effects: W register is changed                                                           ;
+                      00338 ;                                                                       ;
+                      00339 ; Stack requirement: 2 levels deep                                      ;
+                      00340 ;                                                                       ;
+                      00341 ;***********************************************************************;
+0000AE                00342 Integral:               
+0000AE B2??           00343         btfsc   pidStat1,a_err_z        ;Is a_error = 0
+0000B0 D???           00344         bra             integral_zero           ;Yes
+                      00345         
+0000B2 6A??           00346         clrf    BARGB0                          ;No
+0000B4 C??? F???      00347         movff   ki,BARGB1                       ;move the integral gain into BARGB1
+0000B8 C??? F???      00348         movff   a_Error1,AARGB0                                                 
+0000BC C??? F???      00349         movff   a_Error2,AARGB1                 
+0000C0 EC?? F???      00350         call    FXM1616U                        ;Integral gain * accumulated error
+                      00351                 
+0000C4 C??? F???      00352         movff   AARGB1,integ0           ;AARGB1 --> integ0      
+0000C8 C??? F???      00353         movff   AARGB2,integ1           ;AARGB2 --> integ1      
+0000CC C??? F???      00354         movff   AARGB3,integ2           ;AARGB3 --> integ2      
+0000D0 0012           00355         return                                          ;return
+0000D2                00356 integral_zero
+0000D2 6A??           00357         clrf    integ0                          ;a_error = 0, clear Integral term
+0000D4 6A??           00358         clrf    integ1
+0000D6 6A??           00359         clrf    integ2
+0000D8 0012           00360         return
+                      00361         
+                      00362                 
+                      00363 ;***********************************************************************;
+                      00364 ; Function: Derivative                                                  ;
+                      00365 ;                                                                       ;
+                      00366 ; PreCondition:  error0:erro1 are loaded with the latest system error   ;
+                      00367 ;                                                                       ;
+                      00368 ; Overview: This routine will multiply the system's 16-bit delta                ;
+                      00369 ;           error by the derivative gain(Kd) --> d_Error0:d_Error1 * Kd ;
+                      00370 ;                       d_Error0:d_Error1 = error0:error1 - p_Error0:p_Error1           ;
+                      00371 ;                                                                                                       
+                                                                    ;
+MPASM 5.54                        PIDINT.ASM   10-25-2017  22:30:30         PAGE  9
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+                      00372 ; Input: d_Error0:d_Error1, pidStat2,d_err_z                                                ;
+                      00373 ;                                                                       ;
+                      00374 ; Output: deriv0:deriv2                                                 ;
+                      00375 ;                                                                       ;
+                      00376 ; Side Effects: W register is changed                                                           ;
+                      00377 ;                                                                       ;
+                      00378 ; Stack requirement: 2 levels deep                                      ;
+                      00379 ;                                                                       ;
+                      00380 ;***********************************************************************;
+0000DA                00381 Derivative:
+0000DA B0??           00382         btfsc   pidStat2,d_err_z        ;Is d_error = 0?
+0000DC D???           00383         bra             derivative_zero         ;YES
+                      00384         
+0000DE C??? F???      00385         movff   d_Error1,BARGB1         ;result ---> BARGB1
+0000E2 C??? F???      00386         movff   d_Error0,BARGB0         ;result ---> BARGB0
+0000E6 C??? F???      00387         movff   kd,AARGB1       
+0000EA 6A??           00388         clrf    AARGB0
+0000EC EC?? F???      00389         call    FXM1616U                        ;Derivative gain * (error_l - prv_error1)
+                      00390         
+0000F0 C??? F???      00391         movff   AARGB1,deriv0           ;AARGB1 --> deriv0
+0000F4 C??? F???      00392         movff   AARGB2,deriv1           ;AARGB2 --> deriv1
+0000F8 C??? F???      00393         movff   AARGB3,deriv2           ;AARGB3 --> deriv2
+0000FC 0012           00394         return                                          ;return
+0000FE                00395 derivative_zero
+0000FE 6A??           00396         clrf    deriv0                          ;d_error = 0, clear Derivative term
+000100 6A??           00397         clrf    deriv1
+000102 6A??           00398         clrf    deriv2
+000104 0012           00399         return
+                      00400                 
+                      00401                 
+                      00402 
+                      00403 ;***********************************************************************;
+                      00404 ; Function: GetPidResult                                                ;
+                      00405 ;                                                                       ;
+                      00406 ; PreCondition: Proportional, Integral & Derivative terms have been             ;
+                      00407 ;                               calculated. The Timer1 interrupt is disabled within             ;
+                      00408 ;                               this routine to avoid corruption of the PID result.             ;
+                      00409 ;                                                                       ;
+                      00410 ; Overview: This routine will add the PID terms and then scale down     ;
+                      00411 ;                       the result by 16. This will be the final result that is         ;
+                      00412 ;                       calcualted by the PID code.                                                     
+                                            ;
+                      00413 ;                                                                                                       
+                                                                    ;
+                      00414 ; Input: prop0:prop2, integ0:integ2, deriv0:deriv2                                          ;
+                      00415 ;                                                                       ;
+                      00416 ; Output: pidOut0:pidOut2                                               ;
+                      00417 ;                                                                       ;
+                      00418 ; Side Effects: W register is changed                                                           ;
+                      00419 ;                                                                       ;
+                      00420 ; Stack requirement: 4 levels deep max.                                                                 
+                            ;
+                      00421 ;                                                                       ;
+MPASM 5.54                        PIDINT.ASM   10-25-2017  22:30:30         PAGE 10
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+                      00422 ;***********************************************************************;
+000106                00423 GetPidResult:
+000106 C??? F???      00424         movff   prop0,AARGB0                    ;load Prop term & Integral term
+00010A C??? F???      00425         movff   prop1,AARGB1
+00010E C??? F???      00426         movff   prop2,AARGB2                    
+000112 C??? F???      00427         movff   integ0,BARGB0
+000116 C??? F???      00428         movff   integ1,BARGB1
+00011A C??? F???      00429         movff   integ2,BARGB2
+                      00430 
+00011E EC?? F???      00431         call    SpecSign                                ;YES, call routine for add/sub sign numbers
+000122 AA??           00432         btfss   pidStat1,mag                    ;which is greater in magnitude ?
+000124 D???           00433         bra             integ_mag                               ;BARGB is greater in magnitude
+000126 D???           00434         bra             prop_mag                                ;AARGB is greater in magnitude
+                      00435         
+000128                00436 integ_mag                                                       ;integ > prop
+000128 9E??           00437         bcf             pidStat1,pid_sign               ;PID result is negative
+00012A B6??           00438         btfsc   pidStat1,a_err_sign                     
+00012C 8E??           00439         bsf             pidStat1,pid_sign               ;PID result is positive
+00012E D???           00440         bra     add_derivative                  ;(Prop + Integ) + derivative
+                      00441         
+000130                00442 prop_mag                                                        ;integ < prop
+000130 9E??           00443         bcf             pidStat1,pid_sign               ;PID result is negative
+000132 B4??           00444         btfsc   pidStat1,err_sign                       
+000134 8E??           00445         bsf             pidStat1,pid_sign               ;PID result is positive
+                      00446 
+000136                00447 add_derivative
+000136 C??? F???      00448         movff   deriv0,BARGB0                   ;YES, AARGB0:AARGB2 has result of Prop + Integ  
+00013A C??? F???      00449         movff   deriv1,BARGB1                   ;load derivative term
+00013E C??? F???      00450         movff   deriv2,BARGB2                           
+                      00451         
+000142 C??? F???      00452         movff   pidStat1,tempReg                ;pidStat1 ---> tempReg
+000146 0EC0           00453         movlw   b'11000000'                             ;prepare for sign check of bits 7 & 6
+000148 16??           00454         andwf   tempReg,f
+                      00455         
+00014A 50??           00456         movf    tempReg,w                               ;check error sign & a_error sign bits
+00014C 0800           00457         sublw   0x00
+00014E B4D8           00458         btfsc   STATUS,Z
+000150 D???           00459         bra             add_neg_d                               ;bits 7 & 6 (00) are NEGATIVE, add them
+000152 D???           00460         bra             other_combo_d                   ;bits 7 & 6 not equal to 00
+000154                00461 add_neg_d                       
+000154 EC?? F???      00462         call    _24_BitAdd                              ;add negative sign values
+000158 D???           00463         bra             scale_down                              ;scale result
+                      00464         
+00015A                00465 other_combo_d   
+00015A 50??           00466         movf    tempReg,w
+00015C 08C0           00467         sublw   0xC0
+00015E B4D8           00468         btfsc   STATUS,Z
+000160 D???           00469         bra             add_pos_d                               ;bits 7 & 6 (11) are POSITIVE, add them
+000162 D???           00470         bra             find_mag_sub_d                  ;bits 7 & 6 (xx) are different signs , subtract 
+                            them
+000164                00471 add_pos_d
+000164 EC?? F???      00472         call    _24_BitAdd                              ;add positive sign values
+000168 D???           00473         bra             scale_down                              ;scale result
+MPASM 5.54                        PIDINT.ASM   10-25-2017  22:30:30         PAGE 11
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+00016A                00474 find_mag_sub_d
+00016A EC?? F???      00475         call    MagAndSub                               ;subtract unlike sign numbers
+00016E AA??           00476         btfss   pidStat1,mag                    ;which is greater in magnitude ?
+000170 D???           00477         bra             deriv_mag                               ;BARGB is greater in magnitude
+000172 D???           00478         bra             scale_down                              ;derivative term < part pid term, leave 
+                            pid_sign as is
+                      00479         
+000174                00480 deriv_mag                                                       ;derivative term > part pid term
+000174 9E??           00481         bcf             pidStat1,pid_sign               ;PID result is negative
+000176 BC??           00482         btfsc   pidStat1,d_err_sign                     
+000178 8E??           00483         bsf             pidStat1,pid_sign               ;PID result is positive
+                      00484                 
+00017A                00485 scale_down
+00017A 6A??           00486         clrf    BARGB0                                  ;(Prop + Integ + Deriv) / 16 = FINAL PID RESULT 
+                            to plant
+00017C 0E10           00487         movlw   0x10    
+00017E 6E??           00488         movwf   BARGB1
+000180 EC?? F???      00489         call    FXD2416U
+000184 C??? F???      00490         movff   AARGB2,pidOut2                  ;final result ---> pidOut2
+000188 C??? F???      00491         movff   AARGB1,pidOut1                  ;final result ---> pidOut1
+00018C C??? F???      00492         movff   AARGB0,pidOut0                  ;final result ---> pidOut0
+                      00493         
+                      00494 #ifdef          pid_100                                 ;Final result needs to be scaled down to  0 - 10
+                            0%
+                      00495         movlw   0x06                                    ;% ratio for propotional & integral & derivative
+                             
+                      00496         movwf   BARGB0
+                      00497         movlw   0x40
+                      00498         movwf   BARGB1
+                      00499                 
+                      00500         call    FXD2416U                                ;pidOut0:pidOut2 / % ratio = 0 - 100% value     
+                      00501         movf    AARGB2,W                                ;AARGB2 --> percent_out
+                      00502         movwf   percent_out                             ;error has been scaled down and is now available
+                             in a 0 -100% range
+                      00503 #endif  
+                      00504                 
+000190 0012           00505         return                                                  ;return to mainline code
+                      00506 
+                      00507 
+                      00508 ;***********************************************************************;
+                      00509 ; Function: GetA_Error                                                  ;
+                      00510 ;                                                                       ;
+                      00511 ; PreCondition: Proportional term has been calculated                                   ;
+                      00512 ;                                                                       ;
+                      00513 ; Overview: This routine will add the current error with all of the             ;
+                      00514 ;                       previous errors. The sign of the accumulated error will         ;
+                      00515 ;                       also be determined.     After the accumulated error is                  ;
+                      00516 ;                       calculated then it is checked if it = 00 or as exceeded         ;
+                      00517 ;                       the defined limits.                                                             
+                                                    ;
+                      00518 ;                                                                                                       
+                                                                    ;
+                      00519 ; Input: a_Error0:a_Error1, error0:error1                                                           ;
+MPASM 5.54                        PIDINT.ASM   10-25-2017  22:30:30         PAGE 12
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+                      00520 ;                                                                       ;
+                      00521 ; Output: a_Error0:a_Error1 (updated value)                             ;
+                      00522 ;                                                                       ;
+                      00523 ; Side Effects: W register is changed                                                           ;
+                      00524 ;                                                                       ;
+                      00525 ; Stack requirement: 4 levels deep max.                                                                 
+                            ;
+                      00526 ;                                                                       ;
+                      00527 ;***********************************************************************;
+000192                00528 GetA_Error:                             
+000192 C??? F???      00529         movff   a_Error0,BARGB0                 ;load error & a_error 
+000196 C??? F???      00530         movff   a_Error1,BARGB1
+00019A C??? F???      00531         movff   a_Error2,BARGB2
+00019E 6A??           00532         clrf    AARGB0
+0001A0 C??? F???      00533         movff   error0,AARGB1
+0001A4 C??? F???      00534         movff   error1,AARGB2
+                      00535         
+0001A8 EC?? F???      00536         call    SpecSign                                ;call routine for add/sub sign numbers
+0001AC AA??           00537         btfss   pidStat1,mag                    ;which is greater in magnitude ?
+0001AE D???           00538         bra             a_err_zero                              ;bargb, keep sign as is or both are same
+                             sign
+                      00539         
+0001B0 96??           00540         bcf             pidStat1,a_err_sign             ;aargb, make sign same as error, a_error is nega
+                            tive
+0001B2 B4??           00541         btfsc   pidStat1,err_sign                       
+0001B4 86??           00542         bsf             pidStat1,a_err_sign             ;a_error is positive
+                      00543         
+0001B6                00544 a_err_zero
+0001B6 92??           00545         bcf             pidStat1,a_err_z                ;clear a_error zero flag
+0001B8 0E00           00546         movlw   0
+0001BA 62??           00547         cpfseq  AARGB0                                  ;is byte 0 = 00
+0001BC D???           00548         bra             chk_a_err_limit                 ;NO, done checking
+                      00549         
+0001BE 62??           00550         cpfseq  AARGB1                                  ;is byte 1 = 00
+0001C0 D???           00551         bra             chk_a_err_limit                 ;NO, done checking
+                      00552         
+0001C2 62??           00553         cpfseq  AARGB2                                  ;is byte 2 = 00
+0001C4 D???           00554         bra             chk_a_err_limit                 ;NO, done checking
+0001C6 82??           00555         bsf             pidStat1,a_err_z                ;YES, set zero flag
+                      00556         
+0001C8 C??? F???      00557         movff   AARGB0,a_Error0                 ;store the a_error
+0001CC C??? F???      00558         movff   AARGB1,a_Error1 
+0001D0 C??? F???      00559         movff   AARGB2,a_Error2 
+0001D4 0012           00560         return                                                  ;a_error = 00, return 
+                      00561         
+0001D6                00562 chk_a_err_limit
+0001D6 C??? F???      00563         movff   AARGB0,a_Error0                 ;store the a_error
+0001DA C??? F???      00564         movff   AARGB1,a_Error1 
+0001DE C??? F???      00565         movff   AARGB2,a_Error2 
+                      00566         
+0001E2 0E00           00567         movlw   0                                               ;a_error reached limits?
+0001E4 62??           00568         cpfseq  a_Error0                                ;Is a_Error0 > 0 ??, if yes limit has been excee
+                            ded
+MPASM 5.54                        PIDINT.ASM   10-25-2017  22:30:30         PAGE 13
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+0001E6 D???           00569         bra             restore_limit                   ;YES, restore limit value
+                      00570         
+0001E8 62??           00571         cpfseq  a_Error1                                ;Is a_Error1 = 0 ??, if yes, limit not exceeded
+0001EA D???           00572         bra             chk_a_Error1                    ;NO
+0001EC 0012           00573         return                                                  ;YES
+0001EE                00574 chk_a_Error1    
+0001EE 0E0F           00575         movlw   aErr1Lim                        
+0001F0 64??           00576         cpfsgt  a_Error1                                ;Is a_Error1 > aErr1Lim??
+0001F2 D???           00577         bra             equal_value                             ;NO, check for a_Error1 = aErr1Lim ?
+0001F4 D???           00578         bra             restore_limit                   ;YES, restore limit value       
+0001F6                00579 equal_value
+0001F6 62??           00580         cpfseq  a_Error1                                ;a_Error1 = aErr1Lim?
+0001F8 0012           00581         return                                                  ;no, done checking a_error
+0001FA                00582 chk_a_Error2    
+0001FA 0EA0           00583         movlw   aErr2Lim                                ;Yes, a_Error1 = aErr1Lim
+0001FC 64??           00584         cpfsgt  a_Error2                                ;Is a_Error2 > aErr2Lim ??
+0001FE 0012           00585         return                                                  ;NO, return to mainline code
+                      00586         
+000200                00587 restore_limit
+000200 6A??           00588         clrf    a_Error0                                ;YES, a_error limit has been exceeded
+000202 0E0F           00589         movlw   aErr1Lim                                
+000204 6E??           00590         movwf   a_Error1                
+000206 0EA0           00591         movlw   aErr2Lim
+000208 6E??           00592         movwf   a_Error2        
+00020A 0012           00593         return                                                  ;return to mainline code
+                      00594         
+                      00595         
+                      00596 ;***********************************************************************;
+                      00597 ; Function: GetDeltaError                                               ;
+                      00598 ;                                                                       ;
+                      00599 ; PreCondition: The derivative routine has been called to calculate the ;
+                      00600 ;                               derivative term.                                                        
+                                                    ;
+                      00601 ;                                                                       ;
+                      00602 ; Overview: This routine subtracts the previous error from the current  ;
+                      00603 ;                       error.                                                                          
+                                                            ;
+                      00604 ;                                                                                                       
+                                                                    ;
+                      00605 ; Input: P_Error0:p_Error1, error0:error1                                                           ;
+                      00606 ;                                                                       ;
+                      00607 ; Output: d_Error0:d_Error1, d_Error sign                                               ;
+                      00608 ;                                                                       ;
+                      00609 ; Side Effects: W register is changed                                                           ;
+                      00610 ;                                                                       ;
+                      00611 ; Stack requirement: 3 levels deep max.                                                                 
+                            ;
+                      00612 ;                                                                       ;
+                      00613 ;***********************************************************************;
+00020C                00614 GetDeltaError:
+00020C 6A??           00615         clrf    AARGB0                                  ;load error and p_error
+00020E C??? F???      00616         movff   error0,AARGB1           
+000212 C??? F???      00617         movff   error1,AARGB2
+MPASM 5.54                        PIDINT.ASM   10-25-2017  22:30:30         PAGE 14
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+000216 6A??           00618         clrf    BARGB0
+000218 C??? F???      00619         movff   p_Error0,BARGB1
+00021C C??? F???      00620         movff   p_Error1,BARGB2
+                      00621         
+000220 50??           00622         movf    pidStat1,w                              ;pidStat1 ---> tempReg
+000222 6E??           00623         movwf   tempReg                                 ;prepare for sign check of bits 4 & 2
+000224 0E14           00624         movlw   b'00010100'
+000226 16??           00625         andwf   tempReg,f
+                      00626                 
+000228 50??           00627         movf    tempReg,w                               ;check error sign & a_error sign bits
+00022A 0800           00628         sublw   0x00
+00022C B4D8           00629         btfsc   STATUS,Z                
+00022E D???           00630         bra             p_err_neg                               ;bits 4 & 2 (00) are NEGATIVE, 
+000230 D???           00631         bra             other_combo2                    ;bits 4 & 2 not equal to 00
+000232                00632 p_err_neg
+000232 EC?? F???      00633         call    MagAndSub                       
+000236 9C??           00634         bcf             pidStat1,d_err_sign             ;d_error is negative
+000238 B8??           00635         btfsc   pidStat1,p_err_sign             ;make d_error sign same as p_error sign
+00023A 8C??           00636         bsf             pidStat1,d_err_sign             ;d_error is positive
+00023C D???           00637         bra             d_error_zero_chk                ;check if d_error = 0
+                      00638 
+00023E                00639 other_combo2    
+00023E 50??           00640         movf    tempReg,w
+000240 0814           00641         sublw   0x14
+000242 B4D8           00642         btfsc   STATUS,Z
+000244 D???           00643         bra             p_err_pos                               ;bits 4 & 2 (11) are POSITIVE
+000246 D???           00644         bra     p_err_add                               ;bits 4 & 2 (xx) are different signs
+                      00645         
+000248                00646 p_err_pos
+000248 EC?? F???      00647         call    MagAndSub
+00024C 9C??           00648         bcf             pidStat1,d_err_sign             ;d_error is negative
+00024E B8??           00649         btfsc   pidStat1,p_err_sign             ;make d_error sign same as p_error sign
+000250 8C??           00650         bsf             pidStat1,d_err_sign             ;d_error is positive
+000252 D???           00651         bra             d_error_zero_chk                ;check if d_error = 0
+000254                00652 p_err_add
+000254 EC?? F???      00653         call    _24_BitAdd                              ;errors are different sign
+000258 9C??           00654         bcf             pidStat1,d_err_sign             ;d_error is negative
+00025A B4??           00655         btfsc   pidStat1,err_sign               ;make d_error sign same as error sign
+00025C 8C??           00656         bsf             pidStat1,d_err_sign             ;d_error is positive
+                      00657 
+00025E                00658 d_error_zero_chk
+00025E C??? F???      00659         movff   AARGB1,d_Error0 
+000262 C??? F???      00660         movff   AARGB2,d_Error1 
+                      00661         
+000266 C??? F???      00662         movff   error0,p_Error0                 ;load current error into previous for next deriavtive te
+                            rm
+00026A C??? F???      00663         movff   error1,p_Error1                 ;load current error into previous for next deriavtive te
+                            rm
+00026E 98??           00664         bcf             pidStat1,p_err_sign             ;make p_error negative
+000270 B4??           00665         btfsc   pidStat1,err_sign               ;make p_error the same sign as error
+000272 88??           00666         bsf             pidStat1,p_err_sign             ;make p_error positive  
+                      00667         
+000274 90??           00668         bcf             pidStat2,d_err_z                ;clear delta error zero bit     
+MPASM 5.54                        PIDINT.ASM   10-25-2017  22:30:30         PAGE 15
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+000276 0E00           00669         movlw   0
+000278 62??           00670         cpfseq  d_Error0                                ;is d_error0 = 00
+00027A 0012           00671         return                                                  ;NO, done checking
+                      00672         
+00027C 62??           00673         cpfseq  d_Error1                                ;YES, is d_error1 = 00
+00027E 0012           00674         return                                                  ;NO, done checking
+000280 80??           00675         bsf             pidStat2,d_err_z                ;set delta error zero bit
+000282 0012           00676         return                                                  ;YES, return to ISR
+                      00677                 
+                      00678 ;***********************************************************************;
+                      00679 ; Function: SpecSign                                                    ;
+                      00680 ;                                                                       ;
+                      00681 ; PreCondition: The sign bits in pidStat1 have been set or cleared              ;
+                      00682 ;                               depending on the variables they represent.                              
+                            ;
+                      00683 ;                                                                       ;
+                      00684 ; Overview: This routine takes the numbers loaded into the math                 ;
+                      00685 ;                               variables (AARGB, BARGB) and determines whether they    ;
+                      00686 ;                               need to be added or subtracted based on their sign              ;
+                      00687 ;                               which is located in the pidStat1 register.                              
+                            ;
+                      00688 ;                                                                                                       
+                                                                    ;
+                      00689 ; Input: pidStat1                                                                                       
+                                                ;
+                      00690 ;                                                                       ;
+                      00691 ; Output: add/sub results in math variables (AARGB, BARGB)              ;
+                      00692 ;                                                                       ;
+                      00693 ; Side Effects: W register is changed                                                           ;
+                      00694 ;                                                                       ;
+                      00695 ; Stack requirement: 2 levels deep max.                                                                 
+                            ;
+                      00696 ;                                                                       ;
+                      00697 ;***********************************************************************;
+000284                00698 SpecSign
+000284 C??? F???      00699         movff   pidStat1,tempReg                ;pidStat1 ---> tempReg
+000288 0E0C           00700         movlw   b'00001100'                             ;prepare for sign check of bits 3 & 2
+00028A 16??           00701         andwf   tempReg,f
+                      00702         
+00028C 50??           00703         movf    tempReg,w                               ;check error sign & a_error sign bits
+00028E 0800           00704         sublw   0x00
+000290 B4D8           00705         btfsc   STATUS,Z
+000292 D???           00706         bra             add_neg                                 ;bits 3 & 2 are NEGATIVE (00), add them
+000294 D???           00707         bra             other_combo                             ;bits 3 & 2 not equal to 00
+000296                00708 add_neg                 
+000296 EC?? F???      00709         call    _24_BitAdd                              ;add negative sign values
+00029A 0012           00710         return
+                      00711         
+00029C                00712 other_combo     
+00029C 50??           00713         movf    tempReg,w
+00029E 080C           00714         sublw   0x0C
+0002A0 B4D8           00715         btfsc   STATUS,Z
+0002A2 D???           00716         bra             add_pos                                 ;bits 3 & 2 are POSITIVE (11), add them
+MPASM 5.54                        PIDINT.ASM   10-25-2017  22:30:30         PAGE 16
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+0002A4 D???           00717         bra             find_mag_sub                    ;bits 3 & 2 are different signs (xx), subtract t
+                            hem
+0002A6                00718 add_pos
+0002A6 EC?? F???      00719         call    _24_BitAdd                              ;add positive sign values
+0002AA 0012           00720         return
+0002AC                00721 find_mag_sub
+0002AC EC?? F???      00722         call    MagAndSub                               ;subtract unlike sign numbers
+0002B0 0012           00723         return
+                      00724         
+                      00725 ;***********************************************************************;
+                      00726 ; Function: MagAndSub                                                   ;
+                      00727 ;                                                                       ;
+                      00728 ; PreCondition: This routine has been called by SpecSign because the    ;
+                      00729 ;                               numbers being worked on are different in sign.                  ;
+                      00730 ;                                                                       ;
+                      00731 ; Overview: This routine will detemine which math variable                              ;
+                      00732 ;                       (AARGB or BARGB) is greater in number manitude and then         ;
+                      00733 ;                       subtract them, the sign of the result will be determined by     ;
+                      00734 ;                       the values in the math variables and their signs.                       ;
+                      00735 ;                                                                                                       
+                                                                    ;
+                      00736 ; Input: pidStat1                                                                                       
+                                                ;
+                      00737 ;                                                                       ;
+                      00738 ; Output: add/sub results in math variables (AARGB, BARGB)              ;
+                      00739 ;                                                                       ;
+                      00740 ; Side Effects: W register is changed                                                           ;
+                      00741 ;                                                                       ;
+                      00742 ; Stack requirement: 2 levels deep max.                                                                 
+                            ;
+                      00743 ;                                                                       ;
+                      00744 ;***********************************************************************;
+0002B2                00745 MagAndSub:                      
+0002B2 50??           00746         movf    BARGB0,w
+0002B4 5C??           00747         subwf   AARGB0,w                                ;AARGB0 - BARGB0 --> W
+0002B6 B4D8           00748         btfsc   STATUS,Z                                ;= zero ?
+0002B8 D???           00749         bra             check_1                                 ;YES
+0002BA B0D8           00750         btfsc   STATUS,C                                ;borrow ?
+0002BC D???           00751         bra             aargb_big                               ;AARGB0 > BARGB0, no borrow
+0002BE D???           00752         bra             bargb_big                               ;BARGB0 > AARGB0, borrow
+0002C0                00753 check_1 
+0002C0 50??           00754         movf    BARGB1,w
+0002C2 5C??           00755         subwf   AARGB1,w                                ;AARGB1 - BARGB1 --> W
+0002C4 B4D8           00756         btfsc   STATUS,Z                                ;= zero ?
+0002C6 D???           00757         bra             check_2                                 ;YES
+0002C8 B0D8           00758         btfsc   STATUS,C                                ;borrow ?
+0002CA D???           00759         bra             aargb_big                               ;AARGB1 > BARGB1, no borrow
+0002CC D???           00760         bra             bargb_big                               ;BARGB1 > AARGB1, borrow
+                      00761                         
+0002CE                00762 check_2
+0002CE 50??           00763         movf    BARGB2,w                                ;AARGB2 - BARGB2 --> W
+0002D0 5C??           00764         subwf   AARGB2,w
+0002D2 B0D8           00765         btfsc   STATUS,C                                ;borrow ?
+MPASM 5.54                        PIDINT.ASM   10-25-2017  22:30:30         PAGE 17
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+0002D4 D???           00766         bra             aargb_big                               ;AARGB2 > BARGB2, no borrow
+0002D6 D???           00767         bra             bargb_big                               ;BARGB2 > AARGB2, borrow
+                      00768         
+0002D8                00769 aargb_big
+0002D8 EC?? F???      00770         call    _24_bit_sub             
+0002DC 8A??           00771         bsf             pidStat1,mag                    ;AARGB is greater in magnitude
+0002DE 0012           00772         return
+                      00773         
+0002E0                00774 bargb_big
+0002E0 C??? F???      00775         movff   BARGB0,tempReg                  ;swap AARGB0 with BARGB0
+0002E4 C??? F???      00776         movff   AARGB0,BARGB0
+0002E8 C??? F???      00777         movff   tempReg,AARGB0
+                      00778         
+0002EC C??? F???      00779         movff   BARGB1,tempReg                  ;swap AARGB1 with BARGB1
+0002F0 C??? F???      00780         movff   AARGB1,BARGB1
+0002F4 C??? F???      00781         movff   tempReg,AARGB1
+                      00782         
+0002F8 C??? F???      00783         movff   BARGB2,tempReg                  ;swap AARGB2 with BARGB2
+0002FC C??? F???      00784         movff   AARGB2,BARGB2
+000300 C??? F???      00785         movff   tempReg,AARGB2
+                      00786                 
+000304 EC?? F???      00787         call    _24_bit_sub                             ;BARGB > AARGB  
+000308 9A??           00788         bcf             pidStat1,mag                    ;BARGB is greater in magnitude
+00030A 0012           00789         return  
+                      00790 
+                      00791 ;***********************************************************************;
+                      00792 ; Function: PidInterrupt                                                                ;
+                      00793 ;                                                                       ;
+                      00794 ; PreCondition: This Routine will be called by the application's main   ;
+                      00795 ;                               code.                                                                   
+                                                            ;
+                      00796 ;                                                                       ;
+                      00797 ; Overview: When Timer 1 overlfows, an updated value for the Integral   ;
+                      00798 ;                       term will be calculated. An updated value for the derivative;
+                      00799 ;                       term will be calculated if derivCount = 0. This routine         ;
+                      00800 ;                       will check for error = 0, if this is true,then the routine      ;
+                      00801 ;                       will return back to the main line code.                                         
+                            ;
+                      00802 ;                                                                                                       
+                                                                    ;
+                      00803 ; Input: pidStat1, a_error                                                                              
+                                        ;
+                      00804 ;                                                                       ;
+                      00805 ; Output: Integral & Derivative terms, Timer1 registers reloaded        ;
+                      00806 ;                                                                       ;
+                      00807 ; Side Effects: W register is changed                                                           ;
+                      00808 ;                                                                       ;
+                      00809 ; Stack requirement: 4 levels deep max.                                                                 
+                            ;
+                      00810 ;                                                                       ;
+                      00811 ;***********************************************************************;
+00030C                00812 PidInterrupt:
+  0000                00813         GLOBAL  PidInterrupt
+MPASM 5.54                        PIDINT.ASM   10-25-2017  22:30:30         PAGE 18
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+                      00814         
+00030C B0??           00815         btfsc   pidStat1,err_z                          ;Is error = 00 ?
+00030E 0012           00816         return                                                          ;YES, done.
+000310 EC?? F???      00817         call    GetA_Error                                      ;get a_error, is a_error = 00? reached l
+                            imits?
+                      00818         
+000314                00819 derivative_ready?
+000314 2E??           00820         decfsz  derivCount,f                            ;is it time to calculate d_error ?
+000316 D???           00821         bra             skip_deriv                                      ;NO, finish ISR
+000318 EC?? F???      00822         call    GetDeltaError                           ;error - p_error
+                      00823                                 
+00031C 0E0A           00824         movlw   derivCountVal                           ;prepare for next delta error
+00031E 6E??           00825         movwf   derivCount                                      ;delta error = TMR1H:TMR1L * derivCount
+                      00826 
+000320                00827 skip_deriv      
+000320 0E3E           00828         movlw   timer1Hi                                        ;reload T1 registers with constant time 
+                            count (user defined)
+000322 6ECF           00829         movwf   TMR1H
+000324 0E0D           00830         movlw   timer1Lo
+000326 6ECE           00831         movwf   TMR1L
+000328 0012           00832         return                                                          ;return back to the application'
+                            s ISR
+                      00833                 
+                      00834         END                                                     ;directive 'end of program'
+MPASM 5.54                        PIDINT.ASM   10-25-2017  22:30:30         PAGE 19
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+A                                 00000000
+AARGB0                            00000000
+AARGB1                            00000000
+AARGB2                            00000000
+AARGB3                            00000000
+ACCESS                            00000000
+ACKDT                             00000005
+ACKEN                             00000004
+ACKSTAT                           00000006
+ADCON0                            00000FC2
+ADCON1                            00000FC1
+ADCS0                             00000006
+ADCS1                             00000007
+ADCS2                             00000006
+ADDEN                             00000003
+ADFM                              00000007
+ADIE                              00000006
+ADIF                              00000006
+ADIP                              00000006
+ADON                              00000000
+ADRES                             00000FC3
+ADRESH                            00000FC4
+ADRESL                            00000FC3
+AN0                               00000000
+AN1                               00000001
+AN2                               00000002
+AN3                               00000003
+AN4                               00000005
+AN5                               00000000
+AN6                               00000001
+AN7                               00000002
+BANKED                            00000001
+BARGB0                            00000000
+BARGB1                            00000000
+BARGB2                            00000000
+BARGB3                            00000000
+BCLIE                             00000003
+BCLIF                             00000003
+BCLIP                             00000003
+BF                                00000000
+BOR                               00000000
+BRGH                              00000002
+BSR                               00000FE0
+C                                 00000000
+CCP1                              00000002
+CCP1CON                           00000FBD
+CCP1IE                            00000002
+CCP1IF                            00000002
+CCP1IP                            00000002
+CCP1M0                            00000000
+CCP1M1                            00000001
+CCP1M2                            00000002
+CCP1M3                            00000003
+MPASM 5.54                        PIDINT.ASM   10-25-2017  22:30:30         PAGE 20
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+CCP1X                             00000005
+CCP1Y                             00000004
+CCP2A                             00000003
+CCP2CON                           00000FBA
+CCP2IE                            00000000
+CCP2IF                            00000000
+CCP2IP                            00000000
+CCP2M0                            00000000
+CCP2M1                            00000001
+CCP2M2                            00000002
+CCP2M3                            00000003
+CCP2X                             00000005
+CCP2Y                             00000004
+CCP2_DDRB                         00000003
+CCP2_DDRC                         00000001
+CCP2_PORTB                        00000003
+CCP2_PORTC                        00000001
+CCP2_TRISB                        00000003
+CCP2_TRISC                        00000001
+CCPR1                             00000FBE
+CCPR1H                            00000FBF
+CCPR1L                            00000FBE
+CCPR2                             00000FBB
+CCPR2H                            00000FBC
+CCPR2L                            00000FBB
+CFGS                              00000006
+CHS0                              00000003
+CHS1                              00000004
+CHS2                              00000005
+CK                                00000006
+CKE                               00000006
+CKP                               00000004
+CLKO                              00000006
+CREN                              00000004
+CS                                00000002
+CSRC                              00000007
+D                                 00000005
+DATA_ADDRESS                      00000005
+DC                                00000001
+DC1B0                             00000004
+DC1B1                             00000005
+DC2B0                             00000004
+DC2B1                             00000005
+DCCPX                             00000005
+DDRA                              TRISA
+DDRB                              TRISB
+DDRC                              TRISC
+DDRD                              TRISD
+DDRE                              TRISE
+DONE                              00000002
+D_A                               00000005
+D_NOT_A                           00000005
+Derivative                        000000DA
+MPASM 5.54                        PIDINT.ASM   10-25-2017  22:30:30         PAGE 21
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+EEADR                             00000FA9
+EECON1                            00000FA6
+EECON2                            00000FA7
+EEDATA                            00000FA8
+EEIE                              00000004
+EEIF                              00000004
+EEIP                              00000004
+EEPGD                             00000007
+FAST                              00000001
+FERR                              00000002
+FREE                              00000004
+FSR0                              00000000
+FSR0H                             00000FEA
+FSR0L                             00000FE9
+FSR1                              00000001
+FSR1H                             00000FE2
+FSR1L                             00000FE1
+FSR2                              00000002
+FSR2H                             00000FDA
+FSR2L                             00000FD9
+FXD2416U                          00000000
+FXM1616U                          00000000
+GCEN                              00000007
+GIE                               00000007
+GIEH                              00000007
+GIEL                              00000006
+GIE_GIEH                          00000007
+GO                                00000002
+GO_DONE                           00000002
+GO_NOT_DONE                       00000002
+GetA_Error                        00000192
+GetDeltaError                     0000020C
+GetPidResult                      00000106
+I2C_DAT                           00000005
+I2C_DATA                          00000005
+I2C_READ                          00000002
+I2C_START                         00000003
+I2C_STOP                          00000004
+IBF                               00000007
+IBOV                              00000005
+INDF0                             00000FEF
+INDF1                             00000FE7
+INDF2                             00000FDF
+INT0                              00000000
+INT0E                             00000004
+INT0F                             00000001
+INT0IE                            00000004
+INT0IF                            00000001
+INT1                              00000001
+INT1E                             00000003
+INT1F                             00000000
+INT1IE                            00000003
+INT1IF                            00000000
+MPASM 5.54                        PIDINT.ASM   10-25-2017  22:30:30         PAGE 22
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+INT1IP                            00000006
+INT1P                             00000006
+INT2                              00000002
+INT2E                             00000004
+INT2F                             00000001
+INT2IE                            00000004
+INT2IF                            00000001
+INT2IP                            00000007
+INT2P                             00000007
+INTCON                            00000FF2
+INTCON1                           00000FF2
+INTCON2                           00000FF1
+INTCON3                           00000FF0
+INTEDG0                           00000006
+INTEDG1                           00000005
+INTEDG2                           00000004
+IPEN                              00000007
+IPR1                              00000F9F
+IPR2                              00000FA2
+IRVST                             00000005
+Integral                          000000AE
+LATA                              00000F89
+LATA0                             00000000
+LATA1                             00000001
+LATA2                             00000002
+LATA3                             00000003
+LATA4                             00000004
+LATA5                             00000005
+LATA6                             00000006
+LATB                              00000F8A
+LATB0                             00000000
+LATB1                             00000001
+LATB2                             00000002
+LATB3                             00000003
+LATB4                             00000004
+LATB5                             00000005
+LATB6                             00000006
+LATB7                             00000007
+LATC                              00000F8B
+LATC0                             00000000
+LATC1                             00000001
+LATC2                             00000002
+LATC3                             00000003
+LATC4                             00000004
+LATC5                             00000005
+LATC6                             00000006
+LATC7                             00000007
+LATD                              00000F8C
+LATD0                             00000000
+LATD1                             00000001
+LATD2                             00000002
+LATD3                             00000003
+LATD4                             00000004
+MPASM 5.54                        PIDINT.ASM   10-25-2017  22:30:30         PAGE 23
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+LATD5                             00000005
+LATD6                             00000006
+LATD7                             00000007
+LATE                              00000F8D
+LATE0                             00000000
+LATE1                             00000001
+LATE2                             00000002
+LVDCON                            00000FD2
+LVDEN                             00000004
+LVDIE                             00000002
+LVDIF                             00000002
+LVDIN                             00000005
+LVDIP                             00000002
+LVDL0                             00000000
+LVDL1                             00000001
+LVDL2                             00000002
+LVDL3                             00000003
+MagAndSub                         000002B2
+N                                 00000004
+NOT_A                             00000005
+NOT_ADDRESS                       00000005
+NOT_BOR                           00000000
+NOT_DONE                          00000002
+NOT_IPEN                          00000007
+NOT_PD                            00000002
+NOT_POR                           00000001
+NOT_RBPU                          00000007
+NOT_RC8                           00000006
+NOT_RI                            00000004
+NOT_T1SYNC                        00000002
+NOT_T3SYNC                        00000002
+NOT_TO                            00000003
+NOT_TX8                           00000006
+NOT_W                             00000002
+NOT_WRITE                         00000002
+OBF                               00000006
+OERR                              00000001
+OSC2                              00000006
+OSCCON                            00000FD3
+OV                                00000003
+P                                 00000004
+PC                                00000FF9
+PCFG0                             00000000
+PCFG1                             00000001
+PCFG2                             00000002
+PCFG3                             00000003
+PCL                               00000FF9
+PCLATH                            00000FFA
+PCLATU                            00000FFB
+PD                                00000002
+PEIE                              00000006
+PEIE_GIEL                         00000006
+PEN                               00000002
+MPASM 5.54                        PIDINT.ASM   10-25-2017  22:30:30         PAGE 24
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+PGC                               00000006
+PGD                               00000007
+PGM                               00000005
+PIE1                              00000F9D
+PIE2                              00000FA0
+PIR1                              00000F9E
+PIR2                              00000FA1
+PLUSW0                            00000FEB
+PLUSW1                            00000FE3
+PLUSW2                            00000FDB
+POR                               00000001
+PORTA                             00000F80
+PORTB                             00000F81
+PORTC                             00000F82
+PORTD                             00000F83
+PORTE                             00000F84
+POSTDEC0                          00000FED
+POSTDEC1                          00000FE5
+POSTDEC2                          00000FDD
+POSTINC0                          00000FEE
+POSTINC1                          00000FE6
+POSTINC2                          00000FDE
+PR2                               00000FCB
+PREINC0                           00000FEC
+PREINC1                           00000FE4
+PREINC2                           00000FDC
+PROD                              00000FF3
+PRODH                             00000FF4
+PRODL                             00000FF3
+PSA                               00000003
+PSP0                              00000000
+PSP1                              00000001
+PSP2                              00000002
+PSP3                              00000003
+PSP4                              00000004
+PSP5                              00000005
+PSP6                              00000006
+PSP7                              00000007
+PSPIE                             00000007
+PSPIF                             00000007
+PSPIP                             00000007
+PSPMODE                           00000004
+PidInitalize                      00000000
+PidInterrupt                      0000030C
+PidMain                           00000068
+Proportional                      0000008E
+R                                 00000002
+RA0                               00000000
+RA1                               00000001
+RA2                               00000002
+RA3                               00000003
+RA4                               00000004
+RA5                               00000005
+MPASM 5.54                        PIDINT.ASM   10-25-2017  22:30:30         PAGE 25
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+RA6                               00000006
+RB0                               00000000
+RB1                               00000001
+RB2                               00000002
+RB3                               00000003
+RB4                               00000004
+RB5                               00000005
+RB6                               00000006
+RB7                               00000007
+RBIE                              00000003
+RBIF                              00000000
+RBIP                              00000000
+RBPU                              00000007
+RC0                               00000000
+RC1                               00000001
+RC2                               00000002
+RC3                               00000003
+RC4                               00000004
+RC5                               00000005
+RC6                               00000006
+RC7                               00000007
+RC8_9                             00000006
+RC9                               00000006
+RCD8                              00000000
+RCEN                              00000003
+RCIE                              00000005
+RCIF                              00000005
+RCIP                              00000005
+RCON                              00000FD0
+RCREG                             00000FAE
+RCSTA                             00000FAB
+RD                                00000000
+RD0                               00000000
+RD1                               00000001
+RD16                              00000007
+RD2                               00000002
+RD3                               00000003
+RD4                               00000004
+RD5                               00000005
+RD6                               00000006
+RD7                               00000007
+RE0                               00000000
+RE1                               00000001
+RE2                               00000002
+READ_WRITE                        00000002
+RI                                00000004
+RSEN                              00000001
+RX                                00000007
+RX9                               00000006
+RX9D                              00000000
+R_NOT_W                           00000002
+R_W                               00000002
+S                                 00000003
+MPASM 5.54                        PIDINT.ASM   10-25-2017  22:30:30         PAGE 26
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+SCK                               00000003
+SCL                               00000003
+SCS                               00000000
+SDA                               00000004
+SDI                               00000004
+SDO                               00000005
+SEN                               00000000
+SMP                               00000007
+SP0                               00000000
+SP1                               00000001
+SP2                               00000002
+SP3                               00000003
+SP4                               00000004
+SPBRG                             00000FAF
+SPEN                              00000007
+SREN                              00000005
+SS                                00000005
+SSPADD                            00000FC8
+SSPBUF                            00000FC9
+SSPCON1                           00000FC6
+SSPCON2                           00000FC5
+SSPEN                             00000005
+SSPIE                             00000003
+SSPIF                             00000003
+SSPIP                             00000003
+SSPM0                             00000000
+SSPM1                             00000001
+SSPM2                             00000002
+SSPM3                             00000003
+SSPOV                             00000006
+SSPSTAT                           00000FC7
+STATUS                            00000FD8
+STKFUL                            00000007
+STKOVF                            00000007
+STKPTR                            00000FFC
+STKPTR0                           00000000
+STKPTR1                           00000001
+STKPTR2                           00000002
+STKPTR3                           00000003
+STKPTR4                           00000004
+STKUNF                            00000006
+SWDTE                             00000000
+SWDTEN                            00000000
+SYNC                              00000004
+SpecSign                          00000284
+T08BIT                            00000006
+T0CKI                             00000004
+T0CON                             00000FD5
+T0CS                              00000005
+T0IE                              00000005
+T0IF                              00000002
+T0IP                              00000002
+T0PS0                             00000000
+MPASM 5.54                        PIDINT.ASM   10-25-2017  22:30:30         PAGE 27
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+T0PS1                             00000001
+T0PS2                             00000002
+T0SE                              00000004
+T1CKI                             00000000
+T1CKPS0                           00000004
+T1CKPS1                           00000005
+T1CON                             00000FCD
+T1INSYNC                          00000002
+T1OSCEN                           00000003
+T1OSI                             00000001
+T1OSO                             00000000
+T1SYNC                            00000002
+T2CKPS0                           00000000
+T2CKPS1                           00000001
+T2CON                             00000FCA
+T3CCP1                            00000003
+T3CCP2                            00000006
+T3CKPS0                           00000004
+T3CKPS1                           00000005
+T3CON                             00000FB1
+T3INSYNC                          00000002
+T3SYNC                            00000002
+TABLAT                            00000FF5
+TBLPTR                            00000FF6
+TBLPTRH                           00000FF7
+TBLPTRL                           00000FF6
+TBLPTRU                           00000FF8
+TMR0                              00000FD6
+TMR0H                             00000FD7
+TMR0IE                            00000005
+TMR0IF                            00000002
+TMR0IP                            00000002
+TMR0L                             00000FD6
+TMR0ON                            00000007
+TMR1                              00000FCE
+TMR1CS                            00000001
+TMR1H                             00000FCF
+TMR1IE                            00000000
+TMR1IF                            00000000
+TMR1IP                            00000000
+TMR1L                             00000FCE
+TMR1ON                            00000000
+TMR2                              00000FCC
+TMR2IE                            00000001
+TMR2IF                            00000001
+TMR2IP                            00000001
+TMR2ON                            00000002
+TMR3                              00000FB2
+TMR3CS                            00000001
+TMR3H                             00000FB3
+TMR3IE                            00000001
+TMR3IF                            00000001
+TMR3IP                            00000001
+MPASM 5.54                        PIDINT.ASM   10-25-2017  22:30:30         PAGE 28
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+TMR3L                             00000FB2
+TMR3ON                            00000000
+TO                                00000003
+TOS                               00000FFD
+TOSH                              00000FFE
+TOSL                              00000FFD
+TOSU                              00000FFF
+TOUTPS0                           00000003
+TOUTPS1                           00000004
+TOUTPS2                           00000005
+TOUTPS3                           00000006
+TRISA                             00000F92
+TRISA0                            00000000
+TRISA1                            00000001
+TRISA2                            00000002
+TRISA3                            00000003
+TRISA4                            00000004
+TRISA5                            00000005
+TRISA6                            00000006
+TRISB                             00000F93
+TRISB0                            00000000
+TRISB1                            00000001
+TRISB2                            00000002
+TRISB3                            00000003
+TRISB4                            00000004
+TRISB5                            00000005
+TRISB6                            00000006
+TRISB7                            00000007
+TRISC                             00000F94
+TRISC0                            00000000
+TRISC1                            00000001
+TRISC2                            00000002
+TRISC3                            00000003
+TRISC4                            00000004
+TRISC5                            00000005
+TRISC6                            00000006
+TRISC7                            00000007
+TRISD                             00000F95
+TRISD0                            00000000
+TRISD1                            00000001
+TRISD2                            00000002
+TRISD3                            00000003
+TRISD4                            00000004
+TRISD5                            00000005
+TRISD6                            00000006
+TRISD7                            00000007
+TRISE                             00000F96
+TRISE0                            00000000
+TRISE1                            00000001
+TRISE2                            00000002
+TRMT                              00000001
+TX                                00000006
+TX8_9                             00000006
+MPASM 5.54                        PIDINT.ASM   10-25-2017  22:30:30         PAGE 29
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+TX9                               00000006
+TX9D                              00000000
+TXD8                              00000000
+TXEN                              00000005
+TXIE                              00000004
+TXIF                              00000004
+TXIP                              00000004
+TXREG                             00000FAD
+TXSTA                             00000FAC
+UA                                00000001
+VREFM                             00000002
+VREFP                             00000003
+W                                 00000000
+WCOL                              00000007
+WDTCON                            00000FD1
+WR                                00000001
+WREG                              00000FE8
+WREN                              00000002
+WRERR                             00000003
+Z                                 00000002
+_24_BitAdd                        00000000
+_24_bit_sub                       00000000
+_BORV_20                          000000FF
+_BORV_20_2L                       000000FF
+_BORV_27_2L                       000000FB
+_BORV_42_2L                       000000F7
+_BORV_45_2L                       000000F3
+_BOR_OFF_2L                       000000FD
+_BOR_ON_2L                        000000FF
+_CCP2MX_OFF                       000000FE
+_CCP2MX_OFF_3H                    000000FE
+_CCP2MX_ON                        000000FF
+_CCP2MX_ON_3H                     000000FF
+_CONFIG1H                         00300001
+_CONFIG2H                         00300003
+_CONFIG2L                         00300002
+_CONFIG3H                         00300005
+_CONFIG4L                         00300006
+_CONFIG5H                         00300009
+_CONFIG5L                         00300008
+_CONFIG6H                         0030000B
+_CONFIG6L                         0030000A
+_CONFIG7H                         0030000D
+_CONFIG7L                         0030000C
+_CP0_OFF_5L                       000000FF
+_CP0_ON_5L                        000000FE
+_CP1_OFF_5L                       000000FF
+_CP1_ON_5L                        000000FD
+_CP2_OFF_5L                       000000FF
+_CP2_ON_5L                        000000FB
+_CP3_OFF_5L                       000000FF
+_CP3_ON_5L                        000000F7
+_CPB_OFF_5H                       000000FF
+MPASM 5.54                        PIDINT.ASM   10-25-2017  22:30:30         PAGE 30
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+_CPB_ON_5H                        000000BF
+_CPD_OFF_5H                       000000FF
+_CPD_ON_5H                        0000007F
+_DEBUG_OFF_4L                     000000FF
+_DEBUG_ON_4L                      0000007F
+_DEVID1                           003FFFFE
+_DEVID2                           003FFFFF
+_EBTR0_OFF_7L                     000000FF
+_EBTR0_ON_7L                      000000FE
+_EBTR1_OFF_7L                     000000FF
+_EBTR1_ON_7L                      000000FD
+_EBTR2_OFF_7L                     000000FF
+_EBTR2_ON_7L                      000000FB
+_EBTR3_OFF_7L                     000000FF
+_EBTR3_ON_7L                      000000F7
+_EBTRB_OFF_7H                     000000FF
+_EBTRB_ON_7H                      000000BF
+_ECIO_OSC                         000000FD
+_ECIO_OSC_1H                      000000FD
+_EC_OSC                           000000FC
+_EC_OSC_1H                        000000FC
+_HSPLL_OSC                        000000FE
+_HSPLL_OSC_1H                     000000FE
+_HS_OSC                           000000FA
+_HS_OSC_1H                        000000FA
+_IDLOC0                           00200000
+_IDLOC1                           00200001
+_IDLOC2                           00200002
+_IDLOC3                           00200003
+_IDLOC4                           00200004
+_IDLOC5                           00200005
+_IDLOC6                           00200006
+_IDLOC7                           00200007
+_LP_OSC                           000000F8
+_LP_OSC_1H                        000000F8
+_LVP_OFF_4L                       000000FB
+_LVP_ON_4L                        000000FF
+_OSCS_OFF_1H                      000000FF
+_OSCS_ON_1H                       000000DF
+_PWRT_OFF_2L                      000000FF
+_PWRT_ON_2L                       000000FE
+_RCIO_OSC                         000000FF
+_RCIO_OSC_1H                      000000FF
+_RC_OSC                           000000FB
+_RC_OSC_1H                        000000FB
+_STVR_OFF_4L                      000000FE
+_STVR_ON_4L                       000000FF
+_WDTPS_128_2H                     000000FF
+_WDTPS_16_2H                      000000F9
+_WDTPS_1_2H                       000000F1
+_WDTPS_2_2H                       000000F3
+_WDTPS_32_2H                      000000FB
+_WDTPS_4_2H                       000000F5
+MPASM 5.54                        PIDINT.ASM   10-25-2017  22:30:30         PAGE 31
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+_WDTPS_64_2H                      000000FD
+_WDTPS_8_2H                       000000F7
+_WDT_OFF_2H                       000000FE
+_WDT_ON_2H                        000000FF
+_WRT0_OFF_6L                      000000FF
+_WRT0_ON_6L                       000000FE
+_WRT1_OFF_6L                      000000FF
+_WRT1_ON_6L                       000000FD
+_WRT2_OFF_6L                      000000FF
+_WRT2_ON_6L                       000000FB
+_WRT3_OFF_6L                      000000FF
+_WRT3_ON_6L                       000000F7
+_WRTB_OFF_6H                      000000FF
+_WRTB_ON_6H                       000000BF
+_WRTC_OFF_6H                      000000FF
+_WRTC_ON_6H                       000000DF
+_WRTD_OFF_6H                      000000FF
+_WRTD_ON_6H                       0000007F
+_XT_OSC                           000000F9
+_XT_OSC_1H                        000000F9
+__18F452                          00000001
+aErr1Lim                          0x0F
+aErr2Lim                          0xA0
+a_Error0                          00000006
+a_Error1                          00000007
+a_Error2                          00000008
+a_err_sign                        00000003
+a_err_z                           00000001
+a_err_zero                        000001B6
+aargb_big                         000002D8
+add_derivative                    00000136
+add_neg                           00000296
+add_neg_d                         00000154
+add_pos                           000002A6
+add_pos_d                         00000164
+bargb_big                         000002E0
+call_pid_terms                    0000007A
+check_1                           000002C0
+check_2                           000002CE
+chk_a_Error1                      000001EE
+chk_a_Error2                      000001FA
+chk_a_err_limit                   000001D6
+d_Error0                          0000000B
+d_Error1                          0000000C
+d_err_sign                        00000006
+d_err_z                           00000000
+d_error_zero_chk                  0000025E
+deriv0                            00000013
+deriv1                            00000014
+deriv2                            00000015
+derivCount                        00000000
+derivCountVal                     .10
+deriv_mag                         00000174
+MPASM 5.54                        PIDINT.ASM   10-25-2017  22:30:30         PAGE 32
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+derivative_ready?                 00000314
+derivative_zero                   000000FE
+equal_value                       000001F6
+err_sign                          00000002
+err_z                             00000000
+error0                            00000004
+error1                            00000005
+find_mag_sub                      000002AC
+find_mag_sub_d                    0000016A
+integ0                            00000010
+integ1                            00000011
+integ2                            00000012
+integ_mag                         00000128
+integral_zero                     000000D2
+kd                                00000018
+ki                                00000017
+kp                                00000016
+mag                               00000005
+other_combo                       0000029C
+other_combo2                      0000023E
+other_combo_d                     0000015A
+p_Error0                          00000009
+p_Error1                          0000000A
+p_err_add                         00000254
+p_err_neg                         00000232
+p_err_pos                         00000248
+p_err_sign                        00000004
+pidOut0                           00000001
+pidOut1                           00000002
+pidOut2                           00000003
+pidStat1                          00000019
+pidStat2                          0000001A
+pid_sign                          00000007
+prop0                             0000000D
+prop1                             0000000E
+prop2                             0000000F
+prop_mag                          00000130
+restore_limit                     00000200
+scale_down                        0000017A
+skip_deriv                        00000320
+tempReg                           0000001B
+timer1Hi                          0x3E
+timer1Lo                          0x0D
+
+Errors   :     0
+Warnings :     0 reported,     0 suppressed
+Messages :     0 reported,     0 suppressed
+
+
